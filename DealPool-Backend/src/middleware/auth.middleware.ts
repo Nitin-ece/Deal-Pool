@@ -7,7 +7,9 @@ export const authMiddleware = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const token = req.cookies?.accessToken;
+        const authHeader = req.headers.authorization;
+        const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : undefined;
+        const token = req.cookies?.accessToken || bearerToken;
 
         if (!token) {
             res.status(401).json({
