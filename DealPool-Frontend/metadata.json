@@ -1,0 +1,6 @@
+{
+  "name": "DealPool",
+  "description": "Hyperlocal community marketplace where users post deals and needs, discover nearby requests on an interactive map, submit offers, and manage transactions.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
