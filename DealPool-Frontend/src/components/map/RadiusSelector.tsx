@@ -1,73 +1,56 @@
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import { useAppDispatch, useAppSelector } from "../../redux/store";
-import { setRadiusKm } from "../../redux/slices/dealsSlice";
-import { ChevronDown, Navigation } from "lucide-react";
+import { setRadiusKm as setMapRadiusKm } from "../../redux/slices/mapSlice";
+import { setRadiusKm as setDealsRadiusKm } from "../../redux/slices/dealsSlice";
 
-const RADIUS_OPTIONS = [
-  { value: 3, label: "3 km" },
-  { value: 5, label: "5 km" },
-  { value: 8, label: "8 km" },
-  { value: 15, label: "15 km" },
-  { value: 25, label: "25 km" },
-  { value: 50, label: "50 km" },
-];
+const RADIUS_OPTIONS = [1, 5, 10, 25];
 
-export function RadiusSelector() {
+interface RadiusSelectorProps {
+  value?: number;
+  onChange?: (radius: number) => void;
+  className?: string;
+}
+
+export function RadiusSelector({ value, onChange, className = "" }: RadiusSelectorProps) {
   const dispatch = useAppDispatch();
-  const radiusKm = useAppSelector((state) => state.deals.radiusKm);
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const mapRadius = useAppSelector((state) => state.map.radiusKm);
+  const activeRadius = value !== undefined ? value : mapRadius;
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+  const handleSelect = (r: number) => {
+    if (onChange) {
+      onChange(r);
+    } else {
+      dispatch(setMapRadiusKm(r));
+      dispatch(setDealsRadiusKm(r));
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        id="radius-selector-btn"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3.5 py-1.5 bg-white/95 backdrop-blur-md rounded-xl text-xs font-semibold text-[#1A1A1A] border border-[#E5E5E2] shadow-xs hover:border-[#10B981] transition-all cursor-pointer"
-        title="Change search radius"
-      >
-        <Navigation className="w-3.5 h-3.5 text-[#10B981]" />
-        <span>{radiusKm} km radius</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-xl shadow-lg border border-[#E5E5E2] py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-3 py-1 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-            Search Radius
-          </div>
-          {RADIUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                dispatch(setRadiusKm(opt.value));
-                setIsOpen(false);
-              }}
-              className={`w-full text-left px-3.5 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                radiusKm === opt.value
-                  ? "bg-[#F0FDF4] text-[#059669] font-bold"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <span>{opt.label}</span>
-              {radiusKm === opt.value && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+    <div
+      className={`inline-flex items-center gap-1 p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm ${className}`}
+    >
+      <span className="text-[10px] font-bold text-white/50 px-1.5 uppercase tracking-wider hidden sm:inline">
+        Radius
+      </span>
+      {RADIUS_OPTIONS.map((r) => {
+        const isSelected = activeRadius === r;
+        return (
+          <button
+            key={r}
+            type="button"
+            onClick={() => handleSelect(r)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+              isSelected
+                ? "bg-white text-slate-900 shadow-sm scale-100"
+                : "text-white/70 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {r}km
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+export default RadiusSelector;

@@ -17,6 +17,7 @@ import { DealFilters } from "../components/deals/DealFilters";
 import { DealCardSkeleton } from "../components/common/LoadingSkeleton";
 import { ApiUnavailable } from "../components/common/ApiUnavailable";
 import { OffersPanel } from "../components/offers/OffersPanel";
+import { LocationPermissionGate } from "../components/map/LocationPermissionGate";
 import { useGeolocation, CITY_PRESETS } from "../hooks/useGeolocation";
 import { Deal } from "../types";
 import { cn } from "../lib/cn";
@@ -91,81 +92,8 @@ export function DealsMap() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 lg:px-8">
-      <section className="relative overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--ink)]">
-        <div className="relative h-56 w-full overflow-hidden sm:h-64 lg:h-72">
-          <img
-            src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1600&q=80"
-            alt=""
-            referrerPolicy="no-referrer"
-            className="h-full w-full scale-105 object-cover opacity-55 contrast-125"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--ink)] via-[var(--ink)]/55 to-black/35" />
-
-          <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
-            <div className="h-40 w-40 rounded-full border border-[var(--signal)]/30 animate-radar-pulse sm:h-56 sm:w-56" />
-            <div className="absolute h-24 w-24 rounded-full border border-white/25 sm:h-36 sm:w-36" />
-            <div className="absolute h-3 w-3 rounded-full bg-[var(--signal)] ring-4 ring-[var(--signal)]/30" />
-          </div>
-
-          <div className="absolute left-5 right-5 top-5 z-10 max-w-xl space-y-2 text-white sm:left-6">
-            <div className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-white/15 bg-black/45 px-3 py-1 text-xs font-bold text-[var(--signal)] backdrop-blur-md">
-              <Radio className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-              <span className="truncate">Live radar · {userLocation.cityName}</span>
-              <span className="text-white/35">·</span>
-              <span className="text-white/90">{radiusKm} km</span>
-            </div>
-            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              Neighborhood need radar
-            </h1>
-            <p className="max-w-md text-xs leading-relaxed text-white/70 sm:text-sm">
-              Active needs and skill requests from neighbors in range.
-            </p>
-          </div>
-
-          <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              <button
-                type="button"
-                onClick={() => requestBrowserLocation()}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md transition hover:bg-white/25"
-              >
-                <Crosshair className="h-3.5 w-3.5 text-[var(--signal)]" />
-                {geoStatus === "requesting" ? "Locating…" : "My GPS"}
-              </button>
-              {CITY_PRESETS.slice(0, 4).map((city) => (
-                <button
-                  key={city.name}
-                  type="button"
-                  onClick={() => selectPresetCity(city)}
-                  className={cn(
-                    "shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold backdrop-blur-md transition",
-                    userLocation.cityName === city.name
-                      ? "bg-[var(--signal)] text-white"
-                      : "border border-white/10 bg-black/45 text-white/90 hover:bg-black/60"
-                  )}
-                >
-                  {city.name}
-                </button>
-              ))}
-            </div>
-            <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/15 bg-black/55 p-1 backdrop-blur-md">
-              {[3, 5, 8, 15, 25].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => dispatch(setRadiusKm(r))}
-                  className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                    radiusKm === r ? "bg-[var(--signal)] text-white" : "text-white/70 hover:text-white"
-                  )}
-                >
-                  {r}km
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Live Interactive Radar / Map Discovery */}
+      <LocationPermissionGate heightClass="h-72 sm:h-80 lg:h-96" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

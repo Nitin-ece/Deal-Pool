@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from "../redux/store";
 import { createDeal } from "../redux/slices/dealsSlice";
 import { DealCategory } from "../types";
 import { PlacesAutocomplete } from "../components/map/PlacesAutocomplete";
+import { LocationPermissionGate } from "../components/map/LocationPermissionGate";
 import { useAuth } from "../hooks/useAuth";
 import { getErrorMessage } from "../lib/errors";
 import {
@@ -151,33 +152,9 @@ export function CreateDeal() {
         <span>Back</span>
       </button>
 
-      {/* Top Map Visual Image Header Banner */}
+      {/* Top Map Visual Live Radar Banner replacing static placeholder */}
       <div className="relative rounded-3xl overflow-hidden border border-[#E5E5E2] bg-gray-900 shadow-xs">
-        <div className="relative h-44 sm:h-52 w-full overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1400&q=80"
-            alt="Radar broadcast location"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover opacity-75 contrast-125"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/30" />
-
-          <div className="absolute inset-0 p-6 flex flex-col justify-between text-white z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-xs font-bold text-[#10B981] self-start">
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
-              <span>Broadcast Radius: {radiusKm} km from {locationData.address}</span>
-            </div>
-
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Post a Community Need
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-200 mt-1 max-w-lg">
-                Specify your requirements, item image, expected budget, and broadcast range to receive verified neighbor proposals.
-              </p>
-            </div>
-          </div>
-        </div>
+        <LocationPermissionGate heightClass="h-56 sm:h-64" />
       </div>
 
       {errors.form && (

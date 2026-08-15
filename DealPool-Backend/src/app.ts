@@ -17,6 +17,7 @@ import offerRoutes from "./routes/offer.route";
 import resourceRoutes from "./routes/resource.route";
 import skillRoutes from "./routes/skill.route";
 import transactionRoutes from "./routes/transaction.route";
+import discoveryRoutes from "./routes/discovery.route";
 
 
 const app = express();
@@ -45,6 +46,8 @@ app.use("/api/resources", resourceRoutes);
 app.use("/api/skills", skillRoutes);
 
 app.use("/api/transactions", transactionRoutes);    
+
+app.use("/api/discovery", discoveryRoutes);
 
 app.get("/api", (_req, res) => {
     res.status(200).json({
