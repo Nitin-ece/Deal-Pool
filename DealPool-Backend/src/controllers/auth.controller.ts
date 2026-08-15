@@ -80,14 +80,6 @@ export const refresh = async (
     try {
         const refreshToken = req.cookies?.refreshToken;
 
-        if (!refreshToken) {
-            res.status(401).json({
-                success: false,
-                message: "Refresh token not found",
-            });
-            return;
-        }
-
         const refreshed = await refreshFirebaseToken(refreshToken);
 
         res.cookie("accessToken", refreshed.token, accessTokenCookieOptions);
@@ -211,7 +203,11 @@ export const changePassword = async (
     try {
         const { currentPassword, newPassword } = req.body;
 
-        await changeUserPassword(req.user!.uid, currentPassword, newPassword);
+        await changeUserPassword(
+            req.user!.uid,
+            currentPassword,
+            newPassword
+        );
 
         const response: ApiResponse<null> = {
             success: true,
