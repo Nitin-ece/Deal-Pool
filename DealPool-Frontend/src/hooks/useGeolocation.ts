@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../redux/store";
 import { setUserLocation } from "../redux/slices/dealsSlice";
+import { setManualLocation, requestUserLocation as requestSliceLocation } from "../redux/slices/locationSlice";
 
 export interface PresetCity {
   name: string;
@@ -20,57 +21,50 @@ export const CITY_PRESETS: PresetCity[] = [
 
 export function useGeolocation() {
   const dispatch = useAppDispatch();
-  const userLocation = useAppSelector((state) => state.deals.userLocation);
+  const locationState = useAppSelector((state) => state.location);
+  const dealsLocation = useAppSelector((state) => state.deals.userLocation);
+
+  const activeLocation = {
+    lat: locationState.lat || dealsLocation.lat,
+    lng: locationState.lng || dealsLocation.lng,
+    address: locationState.address || dealsLocation.address,
+    cityName: locationState.cityName || dealsLocation.cityName,
+  };
+
   const [geoStatus, setGeoStatus] = useState<"idle" | "requesting" | "success" | "denied">("idle");
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const requestBrowserLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGeoStatus("denied");
-      setGeoError("Geolocation is not supported by your browser");
-      return;
-    }
-
     setGeoStatus("requesting");
-    setGeoError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const newLoc = {
-          lat: Math.round(latitude * 10000) / 10000,
-          lng: Math.round(longitude * 10000) / 10000,
-          address: "Current Geolocation",
-          cityName: "Local Area",
-        };
-        dispatch(setUserLocation(newLoc));
+    dispatch(requestSliceLocation())
+      .unwrap()
+      .then((res) => {
+        dispatch(setUserLocation(res));
         setGeoStatus("success");
-      },
-      (err) => {
+      })
+      .catch((err) => {
         setGeoStatus("denied");
-        setGeoError(err.message || "Location permission denied");
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
+        setGeoError(String(err));
+      });
   }, [dispatch]);
 
   const selectPresetCity = useCallback(
     (preset: PresetCity) => {
-      dispatch(
-        setUserLocation({
-          lat: preset.lat,
-          lng: preset.lng,
-          address: preset.address,
-          cityName: preset.name,
-        })
-      );
+      const payload = {
+        lat: preset.lat,
+        lng: preset.lng,
+        address: preset.address,
+        cityName: preset.name,
+      };
+      dispatch(setManualLocation(payload));
+      dispatch(setUserLocation(payload));
       setGeoStatus("success");
     },
     [dispatch]
   );
 
   return {
-    userLocation,
+    userLocation: activeLocation,
     geoStatus,
     geoError,
     requestBrowserLocation,
@@ -78,3 +72,5 @@ export function useGeolocation() {
     presets: CITY_PRESETS,
   };
 }
+
+export default useGeolocation;

@@ -25,13 +25,13 @@ import { cn } from "../lib/cn";
 export function DealsMap() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { userLocation, selectPresetCity, requestBrowserLocation, geoStatus } = useGeolocation();
+  const location = useAppSelector((state) => state.location);
+  const mapState = useAppSelector((state) => state.map);
 
   const {
     nearbyDeals,
     loading,
     error,
-    radiusKm,
     selectedCategory,
     searchQuery,
     selectedStatus,
@@ -39,26 +39,32 @@ export function DealsMap() {
     hoveredDealId,
   } = useAppSelector((state) => state.deals);
 
+  const radiusKm = mapState.radiusKm;
+  const currentCityName = location.cityName || location.address.split(",")[0] || "Your Area";
+
   const [sortBy, setSortBy] = useState<"distance" | "newest" | "budget_low" | "budget_high">(
     "distance"
   );
   const [activeOfferDeal, setActiveOfferDeal] = useState<Deal | null>(null);
   const [isOffersPanelOpen, setIsOffersPanelOpen] = useState(false);
 
-  const refetch = () =>
-    dispatch(
-      fetchNearbyDeals({
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-        radiusKm,
-        category: selectedCategory,
-      })
-    );
+  const refetch = () => {
+    if (location.lat && location.lng) {
+      dispatch(
+        fetchNearbyDeals({
+          lat: location.lat,
+          lng: location.lng,
+          radiusKm,
+          category: selectedCategory,
+        })
+      );
+    }
+  };
 
   useEffect(() => {
     refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, userLocation.lat, userLocation.lng, radiusKm, selectedCategory]);
+  }, [dispatch, location.lat, location.lng, radiusKm, selectedCategory]);
 
   const filteredDeals = nearbyDeals
     .filter((deal) => {
@@ -98,7 +104,7 @@ export function DealsMap() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Needs in radar", value: String(filteredDeals.length) },
-          { label: "Sector", value: userLocation.cityName },
+          { label: "Sector", value: currentCityName },
           { label: "Radius", value: `${radiusKm} km` },
         ].map((stat) => (
           <div
