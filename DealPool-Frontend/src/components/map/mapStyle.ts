@@ -1,11 +1,10 @@
 /**
  * Zomato / Blinkit style muted light map skin for Google Maps.
  * Features:
- * - Low-saturation clean light background (#F8FAFC / #F1F5F9)
- * - Muted gray & white road geometry without overwhelming contrast
- * - Hidden POI clutter (stores, commercial pins hidden for clean radar look)
+ * - High-legibility road and street names from Google Maps API
+ * - Clean muted gray & white road geometry
+ * - Hidden commercial store pin clutter for clean discovery
  * - Soft pastel park and water features
- * - Minimal, high-legibility road and area labels
  */
 export interface MapTypeStyle {
   elementType?: string;
@@ -24,35 +23,26 @@ export const mutedMapStyle: MapTypeStyle[] = [
   },
   {
     elementType: "labels.text.fill",
-    stylers: [{ color: "#64748b" }],
+    stylers: [{ color: "#334155" }],
   },
   {
     elementType: "labels.text.stroke",
-    stylers: [{ color: "#ffffff" }, { weight: 3 }],
-  },
-  {
-    featureType: "administrative",
-    elementType: "geometry",
-    stylers: [{ visibility: "off" }],
-  },
-  {
-    featureType: "administrative.country",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#cbd5e1" }, { weight: 1 }],
-  },
-  {
-    featureType: "administrative.land_parcel",
-    stylers: [{ visibility: "off" }],
+    stylers: [{ color: "#ffffff" }, { weight: 3.5 }],
   },
   {
     featureType: "administrative.locality",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#1e293b" }, { weight: 600 }],
+    stylers: [{ color: "#0f172a" }, { weight: 700 }],
   },
   {
     featureType: "administrative.neighborhood",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#475569" }],
+    stylers: [{ color: "#1e293b" }, { weight: 600 }],
+  },
+  {
+    featureType: "administrative.country",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#cbd5e1" }, { weight: 1.5 }],
   },
   {
     featureType: "poi",
@@ -76,7 +66,12 @@ export const mutedMapStyle: MapTypeStyle[] = [
   {
     featureType: "road",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#94a3b8" }],
+    stylers: [{ color: "#475569" }, { weight: 500 }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#ffffff" }, { weight: 3 }],
   },
   {
     featureType: "road.arterial",
@@ -86,27 +81,27 @@ export const mutedMapStyle: MapTypeStyle[] = [
   {
     featureType: "road.arterial",
     elementType: "geometry.stroke",
-    stylers: [{ color: "#cbd5e1" }, { weight: 1.5 }],
+    stylers: [{ color: "#cbd5e1" }, { weight: 1.6 }],
+  },
+  {
+    featureType: "road.arterial",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#1e293b" }],
   },
   {
     featureType: "road.highway",
     elementType: "geometry",
-    stylers: [{ color: "#fed7aa" }],
+    stylers: [{ color: "#fef3c7" }],
   },
   {
     featureType: "road.highway",
     elementType: "geometry.stroke",
-    stylers: [{ color: "#fdba74" }, { weight: 1.8 }],
+    stylers: [{ color: "#fde68a" }, { weight: 2 }],
   },
   {
-    featureType: "road.local",
-    elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
-  },
-  {
-    featureType: "road.local",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#f1f5f9" }, { weight: 0.8 }],
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#92400e" }],
   },
   {
     featureType: "transit",
@@ -120,7 +115,7 @@ export const mutedMapStyle: MapTypeStyle[] = [
   {
     featureType: "water",
     elementType: "labels.text.fill",
-    stylers: [{ color: "#7dd3fc" }],
+    stylers: [{ color: "#0369a1" }],
   },
 ];
 
