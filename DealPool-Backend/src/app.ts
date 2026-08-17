@@ -1,4 +1,4 @@
-// iniializing the app and configuritaions
+// initializing the app and configurations
 import express from "express";
 import cookieParser from "cookie-parser";
 
@@ -15,10 +15,11 @@ import adminRoutes from "./routes/admin.route";
 import dealRoutes from "./routes/deal.route";
 import offerRoutes from "./routes/offer.route";
 import resourceRoutes from "./routes/resource.route";
-import skillRoutes from "./routes/skill.route";
 import transactionRoutes from "./routes/transaction.route";
 import discoveryRoutes from "./routes/discovery.route";
-
+import walletRoutes from "./routes/wallet.route";
+import contractRoutes from "./routes/contract.route";
+import reportRoutes from "./routes/report.route";
 
 const app = express();
 app.use(corsConfig);
@@ -36,18 +37,14 @@ app.use(
 );
 
 app.use("/api/admin", adminRoutes);
-
-app.use("/api/deals",dealRoutes);
-
+app.use("/api/deals", dealRoutes);
 app.use("/api/offers", offerRoutes);
-
 app.use("/api/resources", resourceRoutes);
-
-app.use("/api/skills", skillRoutes);
-
-app.use("/api/transactions", transactionRoutes);    
-
+app.use("/api/transactions", transactionRoutes);
 app.use("/api/discovery", discoveryRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/contracts", contractRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.get("/api", (_req, res) => {
     res.status(200).json({

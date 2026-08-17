@@ -17,7 +17,8 @@
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
     "migrate": "tsx scripts/migrate.ts",
-    "test": "bash scripts/run-tests.sh"
+    "test-Win": "powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1",
+    "test-Lin": "bash scripts/run-tests.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

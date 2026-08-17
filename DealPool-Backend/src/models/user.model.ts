@@ -10,6 +10,8 @@ export interface Profile {
     role: UserRole;
     avg_rating: string;
     rating_count: number;
+    reliability_strikes?: number;
+    trust_score?: string;
     created_at: Date;
     updated_at: Date;
 }

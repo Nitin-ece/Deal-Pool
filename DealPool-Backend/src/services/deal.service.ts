@@ -9,6 +9,8 @@ import {
 } from "../models/deal.model";
 import { badRequest, notFound, forbidden } from "../utils/errors";
 
+import { checkUserHasDebt } from "./wallet.service";
+
 interface CreateDealInput {
     title: string;
     description?: string;
@@ -26,6 +28,11 @@ export const createDeal = async (
     userId: string,
     input: CreateDealInput
 ): Promise<Deal> => {
+    const hasDebt = await checkUserHasDebt(userId);
+    if (hasDebt) {
+        throw forbidden("User has outstanding debt. Settle debts to create deals.", "DEBT_BLOCK");
+    }
+
     if (!input.title || input.lat === undefined || input.lng === undefined) {
         throw badRequest("title, lat, and lng are required", "MISSING_FIELDS");
     }

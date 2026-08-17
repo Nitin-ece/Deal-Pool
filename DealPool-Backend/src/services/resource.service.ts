@@ -6,7 +6,7 @@ import { badRequest, notFound, forbidden } from "../utils/errors";
 
 interface CreateResourceInput {
     title: string; description?: string; category?: string;
-    condition?: string; lat: number; lng: number;
+    condition?: string; declaredValue?: number; lat: number; lng: number;
 }
 
 export const createResource = async (
@@ -21,6 +21,7 @@ export const createResource = async (
         description: input.description ?? null,
         category: input.category ?? null,
         condition: input.condition ?? null,
+        declaredValue: input.declaredValue ?? 0,
         lat: input.lat,
         lng: input.lng,
     });
@@ -46,7 +47,7 @@ export const listNearbyResources = async (
 };
 
 const UPDATABLE_RESOURCE_FIELDS = [
-    "title", "description", "category", "condition", "is_available",
+    "title", "description", "category", "condition", "declared_value", "is_available",
 ] as const;
 // NOTE: current_holder_id deliberately excluded — only the transaction
 // flow (acceptOffer) is allowed to move custody, same principle as

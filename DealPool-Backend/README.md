@@ -1,10 +1,14 @@
 # DealPool Backend
 
-## Response structure
+A peer-to-peer resource sharing & rental marketplace API: users post **Deals** (requests for items), others respond with **Offers**, the deal owner accepts one, which atomically creates a **Contract** backed by a double-entry **Wallet & Escrow** ledger.
 
-Every endpoint returns one of:
+---
 
-​```typescript
+## Response Structure (Rule 1 Compliance)
+
+Every endpoint strictly returns one of these two structures:
+
+```typescript
 export type ApiResponse<T = unknown> =
     | {
         success: true;
@@ -19,183 +23,184 @@ export type ApiResponse<T = unknown> =
             message: string;
         };
     };
-​```
-
-## Auth model
-
-- Firebase handles identity (email/password + Google). Postgres `profiles` table holds app data.
-- Access/refresh tokens are set as httpOnly cookies (`accessToken`, `refreshToken`) — never returned in the response body.
-- `authMiddleware` verifies the Firebase token on every request and re-fetches the profile from the DB, so role changes and profile updates take effect on the very next request, no re-login required.
-
-## `profiles` table
-
-| column         | type          | notes                                  |
-|----------------|---------------|-----------------------------------------|
-| id             | uuid          | pk                                      |
-| firebase_uid   | text          | unique, links to Firebase user          |
-| username       | text          | unique, server-generated on register    |
-| email          | text          | unique, not null                        |
-| profile_photo  | text          | nullable                                |
-| role           | text          | `user` \| `admin`, default `user`       |
-| avg_rating     | numeric(3,2)  | 0.00–5.00, not user-editable            |
-| rating_count   | integer       | not user-editable                       |
-| created_at     | timestamptz   |                                          |
-| updated_at     | timestamptz   |                                          |
-
-Username is **never** accepted from the client on register — it's generated server-side (`adjective_noun_hexsuffix`, e.g. `swift_otter_4a1b2c`) and can be changed later via `/api/auth/update`.
-
-`role`, `avg_rating`, and `rating_count` cannot be changed through any self-service endpoint. `role` can only be changed by an existing admin via `/api/admin/users/:id/role`.
-
----
-
-## Auth routes — `/api/auth`
-
-### `POST /api/auth/register`
-
-Body:
-​```json
-{ "email": "user@example.com", "password": "..." }
-​```
-- `201` — profile created, sets `accessToken` + `refreshToken` cookies.
-- `401 INVALID_CREDENTIALS` — missing email/password.
-- `409 EMAIL_EXISTS` — Firebase already has this email.
-- `409 PROFILE_EXISTS` — a profile row already exists for this email.
-
-### `POST /api/auth/login`
-
-Body:
-​```json
-{ "email": "user@example.com", "password": "..." }
-​```
-- `200` — sets cookies, returns profile.
-- `401 INVALID_CREDENTIALS` — missing fields or wrong email/password.
-
-### `GET /api/auth/me`
-
-Protected. No body. Returns the current user's profile.
-- `200` — profile returned.
-- `401 UNAUTHORIZED` — no/invalid access token, or profile no longer exists.
-
-### `POST /api/auth/logout`
-
-No body. Clears `accessToken` and `refreshToken` cookies.
-- `200` — always succeeds, `data: null`.
-
-### `POST /api/auth/refresh`
-
-No body — reads `refreshToken` cookie. Rotates both cookies.
-- `200` — new cookies set.
-- `401 INVALID_REFRESH_TOKEN` — missing/invalid/expired refresh token.
-
-### `POST /api/auth/google`
-
-Body:
-​```json
-{ "idToken": "<firebase-id-token-from-client-sdk>" }
-​```
-Client handles the Google OAuth popup and Firebase sign-in; this endpoint just verifies the resulting ID token, creates a profile on first login, and sets `accessToken`. Refresh flow is handled entirely client-side by the Firebase SDK for this path.
-- `200` — profile returned, `accessToken` cookie set.
-- `401 INVALID_TOKEN` — missing or invalid ID token.
-
-### `PATCH /api/auth/update`
-
-Protected. Body — all fields optional, send only what changes:
-​```json
-{
-    "username": "new_username",
-    "email": "new@example.com",
-    "profile_photo": "https://..."
-}
-​```
-- `200` — updated profile returned.
-- `400 NO_UPDATE_FIELDS` — no recognized fields in body.
-- `409 USERNAME_TAKEN` / `409 EMAIL_TAKEN` — value already in use.
-- `401 UNAUTHORIZED` — not authenticated.
-
-`role`, `avg_rating`, `rating_count` are silently ignored if sent — they're not in the updatable field set.
-
-### `PATCH /api/auth/change-password`
-
-Protected. Body:
-```json
-{
-    "currentPassword": "oldPassword123",
-    "newPassword": "newPassword123"
-}
 ```
-- `200` — password updated successfully, returns `{ "success": true, "data": null }`.
-- `400 INVALID_CREDENTIALS` — missing `currentPassword` or `newPassword`.
-- `400 WEAK_PASSWORD` — new password is shorter than 6 characters.
-- `401 INVALID_CREDENTIALS` — current password is incorrect.
-- `401 UNAUTHORIZED` — not authenticated.
+
+All errors are thrown using the centralized `AppError` class from `src/utils/errors.ts` and processed through `src/middleware/error.middleware.ts`.
 
 ---
 
-## Admin routes — `/api/admin`
+## Concurrency & Financial Integrity Invariants
 
-All routes require `authMiddleware` + `requireRole("admin")`. Non-admins get `403 FORBIDDEN`; unauthenticated requests get `401 UNAUTHORIZED`.
-
-### `GET /api/admin/users?limit=50&offset=0`
-
-Lists profiles, newest first.
-- `200` — array of profiles.
-
-### `GET /api/admin/users/:id`
-
-Single profile by `id` (uuid, the profiles.id — not firebase_uid).
-- `200` — profile returned.
-- `404 PROFILE_NOT_FOUND`.
-
-### `PATCH /api/admin/users/:id/role`
-
-Body:
-​```json
-{ "role": "admin" }
-​```
-Valid values: `"user"`, `"admin"`.
-- `200` — updated profile returned.
-- `400 INVALID_ROLE` — missing or invalid role value.
-- `404 PROFILE_NOT_FOUND`.
-
-### `DELETE /api/admin/users/:id`
-
-Deletes the profile row.
-- `200` — `data: null`.
-- `404 PROFILE_NOT_FOUND`.
-
-**Known gap:** this only deletes the Postgres row. It does **not** delete the corresponding Firebase Auth user — that user can still authenticate and get a valid ID token, but `authMiddleware` will reject them with `401 PROFILE_NOT_FOUND` since there's no profile to attach. Decide whether to cascade this to `firebaseAuth.deleteUser()` before relying on this in production.
+1. **Wallet Row Lock (`FOR UPDATE`)**: Acquired before checking balances or locking escrow during `acceptOffer` and `confirmContract`.
+2. **Escrow Assertion**: `releaseEscrow` strictly verifies `currentEscrow >= amount` against `sumEscrowForContract` before writing any ledger release entry.
+3. **Dispute Deadline Invariant**: Automated settlement cron re-checks `condition_disputed === false` and `dispute_deadline < now()` inside individual contract transactions.
+4. **Debt Blocking (`DEBT_BLOCK`)**: Users with outstanding debt cannot post new deals or submit offers.
+5. **Fee Cap (`FEE_EXCEEDS_CAP`)**: Offer price cannot exceed 10% of resource declared value.
 
 ---
 
-## Health check
+## Database Tables
 
-`GET /api` — confirms the API is running.
+### `profiles`
+- `id` (uuid PK) — this is `req.user.uid`
+- `firebase_uid` (text unique)
+- `username` (text unique, server-generated on register)
+- `email` (text unique)
+- `profile_photo` (text nullable)
+- `role` (`user` | `admin`, default `user`)
+- `avg_rating` (numeric(3,2), default 0.00)
+- `rating_count` (integer, default 0)
+- `reliability_strikes` (integer, default 0)
+- `trust_score` (numeric(4,2), default 5.00)
+- timestamps
+
+### `resources`
+- `id` (uuid PK), `owner_id` (uuid FK profiles)
+- `title`, `description`, `category`, `condition`
+- `declared_value` (numeric(12,2) default 0.00)
+- `location` (geography(Point,4326)), `is_available` (boolean default true)
+- `current_holder_id` (uuid FK profiles)
+- timestamps
+
+### `deals`
+- `id` (uuid PK), `user_id` (uuid FK profiles)
+- `title`, `description`, `category`, `budget_min`, `budget_max`
+- `location` (geography(Point,4326)), `radius_km` (default 10)
+- `resource_id` (uuid FK resources nullable)
+- `status` (`open` | `offer_accepted` | `completed` | `cancelled`)
+- timestamps
+
+### `offers`
+- `id` (uuid PK), `deal_id` (uuid FK deals), `provider_id` (uuid FK profiles)
+- `price` (numeric(12,2)), `terms` (text)
+- `status` (`pending` | `accepted` | `rejected` | `withdrawn`)
+- timestamps
+
+### `wallets`
+- `id` (uuid PK), `user_id` (uuid unique FK profiles)
+- `balance` (numeric(12,2) >= 0), `locked_balance` (numeric(12,2) >= 0)
+- timestamps
+
+### `ledger_entries`
+- `id` (uuid PK), `contract_id` (uuid FK contracts nullable), `user_id` (uuid FK profiles)
+- `amount` (numeric(12,2))
+- `entry_type` (`deposit` | `withdrawal` | `escrow_lock_fee` | `escrow_lock_security` | `escrow_payout_fee` | `escrow_release_security` | `escrow_penalty`)
+- `description` (text), `created_at` (timestamptz)
+
+### `debts`
+- `id` (uuid PK), `user_id` (uuid FK profiles), `contract_id` (uuid FK contracts nullable)
+- `amount` (numeric(12,2)), `status` (`outstanding` | `settled`)
+- timestamps
+
+### `contracts`
+- `id` (uuid PK), `deal_id` (uuid FK deals), `offer_id` (uuid FK offers), `resource_id` (uuid FK resources)
+- `requester_id` (uuid FK profiles), `provider_id` (uuid FK profiles)
+- `rental_fee` (numeric(12,2)), `security_deposit` (numeric(12,2))
+- `status` (`created` | `confirmed` | `active` | `returned` | `completed` | `disputed` | `cancelled`)
+- `checked_out_at` (timestamptz), `returned_at` (timestamptz), `dispute_deadline` (timestamptz)
+- `condition_disputed` (boolean default false)
+- timestamps
+
+### `reports` (Disputes)
+- `id` (uuid PK), `contract_id` (uuid FK contracts), `reporter_id` (uuid FK profiles)
+- `reason` (`damage` | `overcharge` | `other`), `description` (text)
+- `status` (`pending` | `resolved_damage` | `resolved_dismissed` | `resolved_overcharge`)
+- `damage_award` (numeric(12,2)), `resolved_by` (uuid FK profiles nullable), `resolution_notes` (text)
+- timestamps
 
 ---
 
-## Error codes reference
+## API Routes Summary
 
-| Code                  | HTTP | Meaning                                      |
-|-----------------------|------|-----------------------------------------------|
-| INVALID_CREDENTIALS   | 401 / 400 | Missing/wrong credentials or current password |
-| WEAK_PASSWORD         | 400  | New password is shorter than 6 characters     |
-| UNAUTHORIZED          | 401  | Missing/invalid token, or no profile          |
-| INVALID_TOKEN         | 401  | Bad Firebase ID token                         |
-| INVALID_REFRESH_TOKEN | 401  | Missing/invalid/expired refresh token         |
-| FORBIDDEN             | 403  | Authenticated but wrong role                  |
-| NOT_FOUND / PROFILE_NOT_FOUND | 404 | Resource doesn't exist                 |
-| EMAIL_EXISTS          | 409  | Firebase already has this email               |
-| PROFILE_EXISTS        | 409  | DB profile already exists                     |
-| USERNAME_TAKEN        | 409  | Username unique constraint hit                |
-| EMAIL_TAKEN           | 409  | Email unique constraint hit on update         |
-| NO_UPDATE_FIELDS      | 400  | PATCH body had no valid fields                |
-| INVALID_ROLE          | 400  | Role update with bad/missing value            |
+### Auth (`/api/auth`)
+- `POST /api/auth/register` — Register user & set cookies
+- `POST /api/auth/login` — Login user & set cookies
+- `GET /api/auth/me` — Current user profile
+- `POST /api/auth/logout` — Clear auth cookies
+- `POST /api/auth/refresh` — Rotate access/refresh tokens
+- `POST /api/auth/google` — Google OAuth ID Token verification
+- `PATCH /api/auth/update` — Update profile fields
+- `PATCH /api/auth/change-password` — Change password
 
-## Running tests
+### Admin (`/api/admin`)
+- `GET /api/admin/users` — List profiles (admin only)
+- `GET /api/admin/users/:id` — Get single user
+- `PATCH /api/admin/users/:id/role` — Update user role
+- `DELETE /api/admin/users/:id` — Delete user profile
 
-​```bash
-npm run test:auth
-npm run test:admin
-​```
+### Wallet (`/api/wallet`)
+- `GET /api/wallet` — Get current wallet balance & locked escrow
+- `POST /api/wallet/deposit` — Deposit test funds (`{ "amount": 500 }`)
+- `GET /api/wallet/ledger` — List user's ledger transaction entries
+- `GET /api/wallet/debts` — List user's outstanding debts
 
-Both scripts hit a live server instance and a live Firebase project — they create and delete real Firebase users, so point `.env` at a dev/test project, not production.
+### Deals (`/api/deals`)
+- `POST /api/deals` — Create deal (blocked if debt exists)
+- `GET /api/deals` — List deals (supports `category`, `status`)
+- `GET /api/deals/nearby` — PostGIS proximity search (`lat`, `lng`, `radiusKm`)
+- `GET /api/deals/:id` — Get deal details
+- `PATCH /api/deals/:id` — Update deal
+- `DELETE /api/deals/:id` — Delete deal
+
+### Offers (`/api/offers` & `/api/deals/:id/offers`)
+- `POST /api/deals/:id/offers` — Submit offer (enforces 10% fee cap & debt block)
+- `GET /api/deals/:id/offers` — List offers for deal
+- `PATCH /api/offers/:id/accept` — Accept offer & create contract
+- `PATCH /api/offers/:id/reject` — Reject offer
+- `PATCH /api/offers/:id/withdraw` — Withdraw offer
+
+### Resources (`/api/resources`)
+- `POST /api/resources` — Register physical resource with `declaredValue`
+- `GET /api/resources/me` — List my resources
+- `GET /api/resources/nearby` — PostGIS proximity search
+- `GET /api/resources/:id` — Get resource by ID
+- `PATCH /api/resources/:id` — Update resource
+- `DELETE /api/resources/:id` — Delete resource
+
+### Contracts (`/api/contracts`)
+- `GET /api/contracts` — List my contracts
+- `GET /api/contracts/:id` — Get contract details
+- `POST /api/contracts/:id/confirm` — Requester confirms contract & locks escrow
+- `POST /api/contracts/:id/checkout` — Provider hands over resource (`status -> active`)
+- `POST /api/contracts/:id/return` — Requester returns item (`status -> returned`, sets dispute deadline)
+- `POST /api/contracts/:id/cancel` — Cancel contract (refunds escrow if confirmed)
+
+### Reports & Disputes (`/api/reports`)
+- `POST /api/reports` — File dispute (flags contract `condition_disputed = true`)
+- `GET /api/reports` — List user or all reports (if admin)
+- `GET /api/reports/:id` — Get report details
+- `POST /api/reports/:id/resolve` — Admin resolution:
+  - `damage`: Award up to security deposit as penalty to provider, refund remaining deposit. If `damageAward > securityDeposit`, record debt and apply reliability strike to requester.
+  - `dismissed`: Refund full deposit to requester, pay rental fee to provider.
+  - `overcharge`: Apply reliability strike to provider.
+
+---
+
+## Cron Settlement Script
+
+Run the automated contract dispute-window settlement script:
+
+```bash
+# Windows PowerShell
+.\node_modules\.bin\tsx scripts/settle-contracts.ts
+
+# Linux / Bash
+npx tsx scripts/settle-contracts.ts
+```
+
+---
+
+## Running Test Suites
+
+### Windows PowerShell:
+```powershell
+.\scripts\run-tests.ps1
+```
+
+### Linux / Bash:
+```bash
+./scripts/run-tests.sh
+```
+
+### Interactive UI Test Dashboard:
+Open `tests/test-dashboard.html` in any modern web browser to interactively test and debug all endpoints in real time.

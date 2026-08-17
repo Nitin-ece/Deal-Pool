@@ -7,8 +7,10 @@ TESTS=(
   "tests/deals.test.ts"
   "tests/offers.test.ts"
   "tests/resources.test.ts"
-  "tests/skills.test.ts"
   "tests/transactions.test.ts"
+  "tests/wallet.test.ts"
+  "tests/contracts.test.ts"
+  "tests/reports.test.ts"
 )
 
 PASSED=()

@@ -8,6 +8,7 @@ export interface Resource {
     description: string | null;
     category: string | null;
     condition: string | null;
+    declared_value?: number | string;
     lat: number;
     lng: number;
     is_available: boolean;
@@ -17,7 +18,7 @@ export interface Resource {
 }
 
 const SELECT_LIST = `
-    id, owner_id, title, description, category, condition,
+    id, owner_id, title, description, category, condition, declared_value,
     ST_Y(location::geometry) AS lat,
     ST_X(location::geometry) AS lng,
     is_available, current_holder_id, created_at, updated_at
@@ -26,17 +27,18 @@ const SELECT_LIST = `
 export const insertResource = async (params: {
     ownerId: string; title: string; description: string | null;
     category: string | null; condition: string | null;
+    declaredValue?: number | null;
     lat: number; lng: number;
 }): Promise<Resource> => {
     const result = await pool.query(
         `
         INSERT INTO resources (
-            owner_id, title, description, category, condition, location, current_holder_id
+            owner_id, title, description, category, condition, declared_value, location, current_holder_id
         )
-        VALUES ($1, $2, $3, $4, $5, ST_MakePoint($6, $7)::geography, $1)
+        VALUES ($1, $2, $3, $4, $5, $6, ST_MakePoint($7, $8)::geography, $1)
         RETURNING ${SELECT_LIST}
         `,
-        [params.ownerId, params.title, params.description, params.category, params.condition, params.lng, params.lat]
+        [params.ownerId, params.title, params.description, params.category, params.condition, params.declaredValue ?? 0, params.lng, params.lat]
     );
     return result.rows[0];
 };

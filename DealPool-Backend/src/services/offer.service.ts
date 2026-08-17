@@ -14,9 +14,10 @@ import {
     insertTransaction,
     findLatestTransactionForResource,
 } from "../models/transaction.model";
-import { updateResourceHolder } from "../models/resource.model";
-
-import { Deal } from "../models/deal.model";
+import { updateResourceHolder, findResourceById } from "../models/resource.model";
+import { checkUserHasDebt, getOrCreateWallet } from "./wallet.service";
+import { findWalletByUserId } from "../models/wallet.model";
+import { insertContract } from "../models/contract.model";
 
 interface CreateOfferInput {
     price?: number;
@@ -28,6 +29,11 @@ export const createOffer = async (
     providerId: string,
     input: CreateOfferInput
 ): Promise<Offer> => {
+    const hasDebt = await checkUserHasDebt(providerId);
+    if (hasDebt) {
+        throw forbidden("User has outstanding debt. Settle debts to create offers.", "DEBT_BLOCK");
+    }
+
     const deal = await getDealById(dealId);
 
     if (deal.status !== "open") {
@@ -36,6 +42,22 @@ export const createOffer = async (
 
     if (deal.user_id === providerId) {
         throw badRequest("Cannot offer on your own deal", "CANNOT_OFFER_OWN_DEAL");
+    }
+
+    if (deal.resource_id && input.price !== undefined && input.price !== null) {
+        const resource = await findResourceById(deal.resource_id);
+        if (resource && resource.declared_value !== undefined && resource.declared_value !== null) {
+            const declaredVal = Number(resource.declared_value);
+            if (declaredVal > 0) {
+                const maxCap = declaredVal * 0.10;
+                if (input.price > maxCap) {
+                    throw badRequest(
+                        `Offer price ₹${input.price} exceeds 10% fee cap of declared value ₹${declaredVal} (max ₹${maxCap.toFixed(2)})`,
+                        "FEE_EXCEEDS_CAP"
+                    );
+                }
+            }
+        }
     }
 
     return insertOffer({
@@ -108,6 +130,10 @@ export const acceptOffer = async (
     try {
         await client.query("BEGIN");
 
+        // 1. Concurrency Guard: Wallet row lock (FOR UPDATE)
+        await getOrCreateWallet(requesterId, client);
+        await findWalletByUserId(requesterId, true, client);
+
         const offer = await findOfferById(offerId, client);
         if (!offer) throw notFound("Offer not found", "OFFER_NOT_FOUND");
 
@@ -115,10 +141,6 @@ export const acceptOffer = async (
         if (!deal) throw notFound("Deal not found", "DEAL_NOT_FOUND");
         if (deal.user_id !== requesterId) throw forbidden("Not your deal", "FORBIDDEN");
 
-        // Offer-specific check MUST run before the deal-status check.
-        // Once an offer is accepted, deal.status flips to "offer_accepted", which would
-        // otherwise mask a re-accept attempt behind DEAL_NOT_OPEN instead of the more
-        // specific OFFER_NOT_PENDING.
         if (offer.status !== "pending") throw conflict("Offer is not pending", "OFFER_NOT_PENDING");
         if (deal.status !== "open") throw conflict("Deal is not open", "DEAL_NOT_OPEN");
 
@@ -126,9 +148,8 @@ export const acceptOffer = async (
         const acceptedOffer = await updateOfferStatus(offerId, "accepted", client);
         await updateDealStatus(deal.id, "offer_accepted", client);
 
-        // deal.user_id = current holder/poster offering the resource (or skill provider's counterpart)
-        // offer.provider_id = the person receiving it at their offered price
         if (deal.resource_id) {
+            const resource = await findResourceById(deal.resource_id, client);
             const parent = await findLatestTransactionForResource(deal.resource_id, client);
 
             await insertTransaction({
@@ -142,12 +163,24 @@ export const acceptOffer = async (
             }, client);
 
             await updateResourceHolder(deal.resource_id, offer.provider_id, client);
+
+            // Create contract record
+            await insertContract({
+                dealId: deal.id,
+                offerId,
+                resourceId: deal.resource_id,
+                requesterId: deal.user_id,
+                providerId: offer.provider_id,
+                rentalFee: Number(offer.price || 0),
+                securityDeposit: Number(resource?.declared_value || 0),
+                status: "created",
+            }, client);
         } else if (deal.skill_id) {
             await insertTransaction({
                 dealId: deal.id,
                 offerId,
-                fromUserId: offer.provider_id, // skill provider performs the work
-                toUserId: deal.user_id,          // deal poster receives it
+                fromUserId: offer.provider_id,
+                toUserId: deal.user_id,
                 resourceId: null,
                 skillId: deal.skill_id,
                 parentTransactionId: null,

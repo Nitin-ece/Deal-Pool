@@ -143,6 +143,51 @@ try {
     if (res.status !== 200) throw new Error(`Expected 200 got ${res.status} ${JSON.stringify(res.body)}`);
     if (res.body.data?.status !== "withdrawn") throw new Error(`Expected status withdrawn got ${res.body.data?.status}`);
   });
+
+  await test("FEE_EXCEEDS_CAP on a price above 10% of declared value", async () => {
+    // Create resource with declared_value: 1000 (10% cap is 100)
+    const resResource = await request(app)
+      .post("/api/resources")
+      .set("Cookie", cookieA)
+      .send({
+        title: "High Value Generator",
+        declaredValue: 1000,
+        lat: 37.5,
+        lng: -122.4,
+      });
+    if (resResource.status !== 201) throw new Error(`Expected 201 got ${resResource.status}`);
+    const resourceId = resResource.body.data?.id;
+
+    // Create deal linked to resource
+    const resDeal = await request(app)
+      .post("/api/deals")
+      .set("Cookie", cookieA)
+      .send({
+        title: "Need Generator for Event",
+        resourceId,
+        lat: 37.5,
+        lng: -122.4,
+      });
+    if (resDeal.status !== 201) throw new Error(`Expected 201 got ${resDeal.status}`);
+    const cappedDealId = resDeal.body.data?.id;
+
+    // Attempt offer of 150 (exceeds 100)
+    const badOffer = await request(app)
+      .post(`/api/deals/${cappedDealId}/offers`)
+      .set("Cookie", cookieB)
+      .send({ price: 150, terms: "Exorbitant fee" });
+    if (badOffer.status !== 400) throw new Error(`Expected 400 got ${badOffer.status} ${JSON.stringify(badOffer.body)}`);
+    if (badOffer.body.error?.code !== "FEE_EXCEEDS_CAP") {
+      throw new Error(`Expected FEE_EXCEEDS_CAP error code, got: ${badOffer.body.error?.code}`);
+    }
+
+    // Valid offer under cap (e.g. 90)
+    const goodOffer = await request(app)
+      .post(`/api/deals/${cappedDealId}/offers`)
+      .set("Cookie", cookieB)
+      .send({ price: 90, terms: "Fair fee under cap" });
+    if (goodOffer.status !== 201) throw new Error(`Expected 201 got ${goodOffer.status} ${JSON.stringify(goodOffer.body)}`);
+  });
 } finally {
   if (uidA) try { await firebaseAuth.deleteUser(uidA); } catch (e) { console.error(e); }
   if (uidB) try { await firebaseAuth.deleteUser(uidB); } catch (e) { console.error(e); }
