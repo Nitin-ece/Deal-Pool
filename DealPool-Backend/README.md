@@ -51,7 +51,7 @@ All errors are thrown using the centralized `AppError` class from `src/utils/err
 7. **Chain Parent Scoping**: `parent_transaction_id` may only be set when `resource_id` is present — skill hand-offs are one-off and never chain.
 8. **Custody Chain Privacy**: On `GET /api/resources/:resourceId/chain`, every hop the caller wasn't a party to is redacted to `{ id, resource_id, status, completed_at, created_at }` — identities and pricing are stripped for non-participant hops.
 
----
+-----
 
 ## Database Tables
 
