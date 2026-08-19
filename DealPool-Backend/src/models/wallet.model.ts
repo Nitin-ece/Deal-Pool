@@ -1,5 +1,6 @@
 import pool from "../config/db";
 import type { PoolClient } from "pg";
+export * from "./ledger.model";
 
 export interface Wallet {
     id: string;
@@ -8,25 +9,6 @@ export interface Wallet {
     locked_balance: number | string;
     created_at: Date;
     updated_at: Date;
-}
-
-export type LedgerEntryType =
-    | "deposit"
-    | "withdrawal"
-    | "escrow_lock_fee"
-    | "escrow_lock_security"
-    | "escrow_payout_fee"
-    | "escrow_release_security"
-    | "escrow_penalty";
-
-export interface LedgerEntry {
-    id: string;
-    contract_id: string | null;
-    user_id: string;
-    amount: number | string;
-    entry_type: LedgerEntryType;
-    description: string | null;
-    created_at: Date;
 }
 
 export interface Debt {
@@ -52,27 +34,37 @@ export const findWalletByUserId = async (
     return result.rows[0] ?? null;
 };
 
-export const createWallet = async (
+export const findWalletByUserIdForUpdate = async (
     userId: string,
+    client: PoolClient
+): Promise<Wallet | null> => {
+    return findWalletByUserId(userId, true, client);
+};
+
+export const insertWallet = async (
+    userId: string,
+    initialBalance = 0,
     client?: PoolClient
 ): Promise<Wallet> => {
     const executor = client ?? pool;
     const result = await executor.query(
         `
         INSERT INTO wallets (user_id, balance, locked_balance)
-        VALUES ($1, 0.00, 0.00)
+        VALUES ($1, $2, 0.00)
         ON CONFLICT (user_id) DO UPDATE SET updated_at = now()
         RETURNING *
         `,
-        [userId]
+        [userId, initialBalance]
     );
     return result.rows[0];
 };
 
+export const createWallet = insertWallet;
+
 export const updateWalletBalance = async (
     userId: string,
     balanceDelta: number,
-    lockedDelta: number,
+    lockedDelta = 0,
     client?: PoolClient
 ): Promise<Wallet | null> => {
     const executor = client ?? pool;
@@ -88,63 +80,6 @@ export const updateWalletBalance = async (
         [userId, balanceDelta, lockedDelta]
     );
     return result.rows[0] ?? null;
-};
-
-export const insertLedgerEntry = async (
-    params: {
-        contractId?: string | null;
-        userId: string;
-        amount: number;
-        entryType: LedgerEntryType;
-        description?: string | null;
-    },
-    client?: PoolClient
-): Promise<LedgerEntry> => {
-    const executor = client ?? pool;
-    const result = await executor.query(
-        `
-        INSERT INTO ledger_entries (contract_id, user_id, amount, entry_type, description)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *
-        `,
-        [params.contractId ?? null, params.userId, params.amount, params.entryType, params.description ?? null]
-    );
-    return result.rows[0];
-};
-
-export const listLedgerEntries = async (
-    userId: string,
-    client?: PoolClient
-): Promise<LedgerEntry[]> => {
-    const executor = client ?? pool;
-    const result = await executor.query(
-        `SELECT * FROM ledger_entries WHERE user_id = $1 ORDER BY created_at DESC`,
-        [userId]
-    );
-    return result.rows;
-};
-
-export const sumEscrowForContract = async (
-    contractId: string,
-    client?: PoolClient
-): Promise<{ lockedTotal: number; releasedTotal: number; currentEscrow: number }> => {
-    const executor = client ?? pool;
-    const result = await executor.query(
-        `
-        SELECT
-            COALESCE(SUM(CASE WHEN entry_type IN ('escrow_lock_fee', 'escrow_lock_security') THEN amount ELSE 0 END), 0) AS locked_total,
-            COALESCE(SUM(CASE WHEN entry_type IN ('escrow_payout_fee', 'escrow_release_security', 'escrow_penalty') THEN amount ELSE 0 END), 0) AS released_total
-        FROM ledger_entries
-        WHERE contract_id = $1
-        `,
-        [contractId]
-    );
-
-    const lockedTotal = Number(result.rows[0]?.locked_total || 0);
-    const releasedTotal = Number(result.rows[0]?.released_total || 0);
-    const currentEscrow = Math.max(0, lockedTotal - releasedTotal);
-
-    return { lockedTotal, releasedTotal, currentEscrow };
 };
 
 export const insertDebt = async (

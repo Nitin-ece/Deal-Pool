@@ -46,20 +46,45 @@ try {
     uid = (await firebaseAuth.getUserByEmail(email)).uid;
   });
 
-  await test("POST /api/resources creates a resource", async () => {
+  await test("POST /api/resources creates a resource with declaredValue and deposit rate tier", async () => {
     const res = await request(app).post("/api/resources").set("Cookie", cookie).send({
       title: "Test Cordless Drill",
       description: "18V, comes with two batteries",
       category: "Tools",
       condition: "Good",
+      declaredValue: 400,
       lat: 37.7749,
       lng: -122.4194,
     });
     if (res.status !== 201) throw new Error(`Expected 201 got ${res.status} ${JSON.stringify(res.body)}`);
     resourceId = res.body.data?.id;
     if (!resourceId) throw new Error("No resource id returned");
+    if (Number(res.body.data?.declared_value) !== 400) throw new Error(`Expected declared_value 400 got ${res.body.data?.declared_value}`);
+    if (Number(res.body.data?.security_deposit_rate) !== 0.15) throw new Error(`Expected default rate 0.15 got ${res.body.data?.security_deposit_rate}`);
     if (res.body.data?.current_holder_id !== res.body.data?.owner_id) {
       throw new Error("current_holder_id should default to owner_id at creation");
+    }
+  });
+
+  await test("deposit tier tiers: 800 -> 0.20, 3000 -> 0.25", async () => {
+    const res1 = await request(app).post("/api/resources").set("Cookie", cookie).send({
+      title: "Mid tier generator",
+      declaredValue: 800,
+      lat: 37.77,
+      lng: -122.41,
+    });
+    if (Number(res1.body.data?.security_deposit_rate) !== 0.20) {
+      throw new Error(`Expected deposit rate 0.20 got ${res1.body.data?.security_deposit_rate}`);
+    }
+
+    const res2 = await request(app).post("/api/resources").set("Cookie", cookie).send({
+      title: "High tier 3D printer",
+      declaredValue: 3000,
+      lat: 37.77,
+      lng: -122.41,
+    });
+    if (Number(res2.body.data?.security_deposit_rate) !== 0.25) {
+      throw new Error(`Expected deposit rate 0.25 got ${res2.body.data?.security_deposit_rate}`);
     }
   });
 
@@ -91,7 +116,31 @@ try {
     }
   });
 
-  await test("PATCH /api/resources/:id updates resource as owner", async () => {
+  await test("VALUE_LOCKED blocks changing declared_value when active deal exists", async () => {
+    // Create deal referencing resource
+    const dealRes = await request(app).post("/api/deals").set("Cookie", cookie).send({
+      title: "Active Deal for Drill",
+      resourceId,
+      lat: 37.7749,
+      lng: -122.4194,
+    });
+    if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
+    const dealId = dealRes.body.data?.id;
+
+    // Attempt update on declaredValue
+    const lockedRes = await request(app).patch(`/api/resources/${resourceId}`).set("Cookie", cookie).send({
+      declaredValue: 600,
+    });
+    if (lockedRes.status !== 409) throw new Error(`Expected 409 got ${lockedRes.status} ${JSON.stringify(lockedRes.body)}`);
+    if (lockedRes.body.error?.code !== "VALUE_LOCKED") {
+      throw new Error(`Expected VALUE_LOCKED got ${lockedRes.body.error?.code}`);
+    }
+
+    // Delete deal so resource can be cleaned up
+    await request(app).delete(`/api/deals/${dealId}`).set("Cookie", cookie);
+  });
+
+  await test("PATCH /api/resources/:id updates resource as owner when unlocked", async () => {
     const res = await request(app).patch(`/api/resources/${resourceId}`).set("Cookie", cookie).send({ title: "Updated Drill Title" });
     if (res.status !== 200) throw new Error(`Expected 200 got ${res.status} ${JSON.stringify(res.body)}`);
     if (res.body.data?.title !== "Updated Drill Title") throw new Error("Title was not updated");

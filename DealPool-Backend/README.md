@@ -1,14 +1,31 @@
-# DealPool Backend
+# MakerPool Backend — Coin Economy & Resource Sharing Platform (PRD v2.1)
 
-A hyperlocal resource, skill & service exchange network API: users post **Deals** (requests for a resource or a skill), others respond with **Offers**, the deal owner accepts one, which atomically creates a custody-tracking **Transaction** — and, for physical resources, a **Contract** backed by a double-entry **Wallet & Escrow** ledger.
+MakerPool is a closed-loop coin economy and physical resource-sharing backend built with Express 5, TypeScript, PostgreSQL (PostGIS), Firebase Auth, and cryptographic transaction chaining.
 
-Stack: Express 5 · TypeScript · PostgreSQL/Supabase (PostGIS) · Firebase Auth · cookie sessions.
+Makers exchange physical equipment, tools, and hardware through a trust-minimized workflow backed by an append-only double-entry ledger, escrow protection, dynamic deposit tiers, 24h dispute windows, and automated deadline settlement.
 
 ---
 
-## Response Structure (Rule 1 Compliance)
+## 1. Core Principles & Economics (v2.1)
 
-Every endpoint strictly returns one of these two structures:
+- **Closed-Loop Coins**: All platform actions use native MakerPool coins (seeded with 1,000 coins on registration).
+- **Append-Only Ledger**: All balance changes are immutably recorded in `ledger_entries`. `wallets.balance` and `wallets.locked_balance` act as cached balances, mutated strictly within atomic ledger service operations.
+- **Escrow Integrity**: Escrow is contract-bound (`escrow_lock`, `escrow_release_*`, `escrow_penalty`). The system guarantees `SUM(lock) - SUM(release + penalty) >= release_amount` before any payout.
+- **Dynamic Deposit Tiers**:
+  - Declared Value $V \le 500 \implies 15\%$ security deposit
+  - $500 < V \le 2000 \implies 20\%$ security deposit
+  - $V > 2000 \implies 25\%$ security deposit
+  - Providers may raise deposit rates within the platform allowed band $[10\%, 50\%]$.
+- **10% Fee Cap Guard**: Maximum lend fee per deal cannot exceed $10\%$ of the linked resource's declared value (`FEE_EXCEEDS_CAP`).
+- **Platform Fee**: $5\%$ platform fee on declared value captured atomically on offer acceptance.
+- **24-Hour Dispute Window**: On item return, the lend fee releases immediately to the provider while the security deposit remains locked for 24 hours. If no damage report is filed within 24 hours, the security deposit is automatically released to the requester via cron (`scripts/settle-contracts.ts`).
+- **Damage Debt & Reputation**: Admin dispute resolution awards damages to the provider. Any shortfall exceeding the security deposit creates an outstanding record in `debts`, applies a reliability strike to the requester, and activates `DEBT_BLOCK` preventing new deals and offers.
+
+---
+
+## 2. API Response Specification
+
+Every API endpoint strictly conforms to the standardized envelope:
 
 ```typescript
 export type ApiResponse<T = unknown> =
@@ -27,38 +44,16 @@ export type ApiResponse<T = unknown> =
     };
 ```
 
-All errors are thrown using the centralized `AppError` class from `src/utils/errors.ts` (`badRequest` 400, `unauthorized` 401, `forbidden` 403, `notFound` 404, `conflict` 409) and processed through `src/middleware/error.middleware.ts`. Every handler resolves through this shape — no bare arrays, no unwrapped objects.
+All application errors are thrown using the centralized `AppError` class (`badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`) and handled by `src/middleware/error.middleware.ts`.
 
 ---
 
-## Auth & Requests
-
-- `authMiddleware` accepts the Firebase-issued access token either from the httpOnly `accessToken` cookie **or** an `Authorization: Bearer <token>` header, then resolves it to the caller's `profiles` row and attaches `req.user = { uid, firebaseUid, email, role }`.
-- `requireRole("admin")` gates admin-only routes on top of `authMiddleware`.
-- Global rate limits (`src/config/ratelimit.ts`): 1000 req/15min on all `/api/*` traffic, tightened to 100 req/15min on `/api/auth/*`. Both return `success:false` with `RATE_LIMIT_EXCEEDED` / `AUTH_RATE_LIMIT_EXCEEDED`.
-- CORS (`src/config/cors.ts`) reflects any origin with `credentials: true` so cookie auth works across local dev ports.
-
----
-
-## Concurrency & Financial Integrity Invariants
-
-1. **Wallet Row Lock (`FOR UPDATE`)**: Acquired before checking balances or locking escrow during `acceptOffer` and `confirmContract`.
-2. **Escrow Assertion**: `releaseEscrow` strictly verifies `currentEscrow >= amount` against `sumEscrowForContract` before writing any ledger release entry.
-3. **Dispute Deadline Invariant**: The automated settlement cron re-checks `condition_disputed === false` and `dispute_deadline < now()` inside individual contract transactions.
-4. **Debt Blocking (`DEBT_BLOCK`)**: Users with outstanding debt cannot post new deals or submit offers.
-5. **Fee Cap (`FEE_EXCEEDS_CAP`)**: Offer price cannot exceed 10% of the linked resource's `declared_value`.
-6. **Resource/Skill Exclusivity**: A `transactions` row must reference exactly one of `resource_id` / `skill_id` (DB `CHECK`, never both, never neither).
-7. **Chain Parent Scoping**: `parent_transaction_id` may only be set when `resource_id` is present — skill hand-offs are one-off and never chain.
-8. **Custody Chain Privacy**: On `GET /api/resources/:resourceId/chain`, every hop the caller wasn't a party to is redacted to `{ id, resource_id, status, completed_at, created_at }` — identities and pricing are stripped for non-participant hops.
-
------
-
-## Database Tables
+## 3. Database Schema
 
 ### `profiles`
-- `id` (uuid PK) — this is `req.user.uid`
+- `id` (uuid PK) — Matches authenticated user ID
 - `firebase_uid` (text unique)
-- `username` (text unique, server-generated on register)
+- `username` (text unique)
 - `email` (text unique)
 - `profile_photo` (text nullable)
 - `role` (`user` | `admin`, default `user`)
@@ -68,25 +63,38 @@ All errors are thrown using the centralized `AppError` class from `src/utils/err
 - `trust_score` (numeric(4,2), default 5.00)
 - timestamps
 
+### `wallets`
+- `id` (uuid PK), `user_id` (uuid unique FK profiles)
+- `balance` (numeric(12,2) >= 0) — Available coin balance
+- `locked_balance` (numeric(12,2) >= 0) — Funds currently committed in active escrows
+- timestamps
+
+### `ledger_entries`
+- `id` (uuid PK), `contract_id` (uuid FK contracts nullable), `user_id` (uuid FK profiles)
+- `amount` (numeric(12,2))
+- `entry_type` (`signup_bonus` | `deposit` | `withdrawal` | `fee_capture` | `escrow_lock` | `escrow_release_fee` | `escrow_release_deposit` | `escrow_penalty` | `damage_debt`)
+- `from_wallet_id` (uuid FK wallets nullable), `to_wallet_id` (uuid FK wallets nullable)
+- `description` (text), `created_at` (timestamptz)
+
+### `debts`
+- `id` (uuid PK), `user_id` (uuid FK profiles), `contract_id` (uuid FK contracts nullable)
+- `amount` (numeric(12,2)), `status` (`outstanding` | `settled`)
+- timestamps
+
 ### `resources`
 - `id` (uuid PK), `owner_id` (uuid FK profiles)
 - `title`, `description`, `category`, `condition`
-- `declared_value` (numeric(12,2) default 0.00)
+- `declared_value` (numeric(10,2) default 0.00)
+- `security_deposit_rate` (numeric(4,2) default 0.15)
 - `location` (geography(Point,4326)), `is_available` (boolean default true)
-- `current_holder_id` (uuid FK profiles, NOT NULL — tracks who physically holds the item right now, independent of `owner_id`)
-- timestamps
-
-### `skills`
-- `id` (uuid PK), `user_id` (uuid FK profiles)
-- `name`, `description`, `category` (no location column — skills can be remote)
-- `is_available` (boolean default true)
+- `current_holder_id` (uuid FK profiles — tracks physical custody)
 - timestamps
 
 ### `deals`
 - `id` (uuid PK), `user_id` (uuid FK profiles)
 - `title`, `description`, `category`, `budget_min`, `budget_max`
 - `location` (geography(Point,4326)), `radius_km` (default 10)
-- `resource_id` (uuid FK resources nullable), `skill_id` (uuid FK skills nullable)
+- `resource_id` (uuid FK resources nullable)
 - `status` (`open` | `offer_accepted` | `completed` | `cancelled`)
 - timestamps
 
@@ -96,40 +104,22 @@ All errors are thrown using the centralized `AppError` class from `src/utils/err
 - `status` (`pending` | `accepted` | `rejected` | `withdrawn`)
 - timestamps
 
-### `transactions`
-The custody ledger — created the moment an offer is accepted, one row per hand-off, regardless of whether it's a resource or a skill:
-- `id` (uuid PK), `deal_id` (uuid FK deals), `offer_id` (uuid FK offers)
-- `from_user_id` (uuid FK profiles — the giver), `to_user_id` (uuid FK profiles — the receiver)
-- `resource_id` (uuid FK resources nullable) **xor** `skill_id` (uuid FK skills nullable) — exactly one is set
-- `parent_transaction_id` (uuid FK transactions nullable) — links a resource to the transaction that preceded it, forming a recursive custody chain; always `null` for skill transactions
-- `status` (`agreement_created` | `confirmed` | `active` | `completed` | `disputed` | `cancelled`)
-- `checked_out_at`, `returned_at`, `completed_at` (timestamptz nullable)
-- timestamps
-
-### `wallets`
-- `id` (uuid PK), `user_id` (uuid unique FK profiles)
-- `balance` (numeric(12,2) >= 0), `locked_balance` (numeric(12,2) >= 0)
-- timestamps
-
-### `ledger_entries`
-- `id` (uuid PK), `contract_id` (uuid FK contracts nullable), `user_id` (uuid FK profiles)
-- `amount` (numeric(12,2))
-- `entry_type` (`deposit` | `withdrawal` | `escrow_lock_fee` | `escrow_lock_security` | `escrow_payout_fee` | `escrow_release_security` | `escrow_penalty`)
-- `description` (text), `created_at` (timestamptz)
-
-### `debts`
-- `id` (uuid PK), `user_id` (uuid FK profiles), `contract_id` (uuid FK contracts nullable)
-- `amount` (numeric(12,2)), `status` (`outstanding` | `settled`)
-- timestamps
-
 ### `contracts`
-Created alongside a `transactions` row only when the deal is **resource-backed** (skill-only deals never get a contract — no escrow to hold):
 - `id` (uuid PK), `deal_id` (uuid FK deals), `offer_id` (uuid FK offers), `resource_id` (uuid FK resources)
 - `requester_id` (uuid FK profiles), `provider_id` (uuid FK profiles)
-- `rental_fee` (numeric(12,2)), `security_deposit` (numeric(12,2), seeded from the resource's `declared_value`)
-- `status` (`created` | `confirmed` | `active` | `returned` | `completed` | `disputed` | `cancelled`)
+- `declared_value`, `deposit_tier_rate`, `lend_fee`, `security_amount`, `platform_fee`
+- `requester_confirmed` (bool), `provider_confirmed` (bool), `contact_revealed` (bool)
 - `checked_out_at` (timestamptz), `returned_at` (timestamptz), `dispute_deadline` (timestamptz)
-- `condition_disputed` (boolean default false)
+- `condition_disputed` (bool default false)
+- `status` (`created` | `confirmed` | `active` | `returned` | `completed` | `disputed` | `cancelled`)
+- timestamps
+
+### `transactions`
+- `id` (uuid PK), `deal_id` (uuid FK deals), `offer_id` (uuid FK offers), `resource_id` (uuid FK resources)
+- `from_user_id` (uuid FK profiles), `to_user_id` (uuid FK profiles)
+- `parent_transaction_id` (uuid FK transactions nullable — forms recursive custody chain)
+- `contract_id` (uuid FK contracts nullable)
+- `status` (`agreement_created` | `confirmed` | `active` | `completed` | `disputed` | `cancelled`)
 - timestamps
 
 ### `reports` (Disputes)
@@ -141,226 +131,109 @@ Created alongside a `transactions` row only when the deal is **resource-backed**
 
 ---
 
-## API Routes Summary
+## 4. API Endpoints
 
-### Auth (`/api/auth`)
-- `POST /api/auth/register` — Register user & set cookies
-- `POST /api/auth/login` — Login user & set cookies
-- `GET /api/auth/me` — Current user profile
-- `POST /api/auth/logout` — Clear auth cookies
+### Authentication (`/api/auth`)
+- `POST /api/auth/register` — Register user, issue JWT cookies, award 1,000 coin signup grant
+- `POST /api/auth/login` — Sign in with email & password
+- `POST /api/auth/google` — Google OAuth credential login & signup grant
+- `GET /api/auth/me` — Retrieve caller's profile and reputation stats
+- `PATCH /api/auth/update` — Update username and profile details
+- `PATCH /api/auth/change-password` — Change account password
 - `POST /api/auth/refresh` — Rotate access/refresh tokens
-- `POST /api/auth/google` — Google OAuth ID Token verification
-- `PATCH /api/auth/update` — Update profile fields (username / email / profile_photo — `role` is silently ignored)
-- `PATCH /api/auth/change-password` — Change password
+- `POST /api/auth/logout` — Invalidate session cookies
 
-### Admin (`/api/admin`, admin role required)
-- `GET /api/admin/users` — List profiles (`limit`, `offset`)
-- `GET /api/admin/users/:id` — Get single user
-- `PATCH /api/admin/users/:id/role` — Update user role (`user` | `admin`)
-- `DELETE /api/admin/users/:id` — Delete user profile
-
-### Wallet (`/api/wallet`)
-- `GET /api/wallet` — Get/lazily-create current wallet balance & locked escrow
-- `POST /api/wallet/deposit` — Deposit test funds (`{ "amount": 500 }`)
-- `GET /api/wallet/ledger` — List user's ledger transaction entries
-- `GET /api/wallet/debts` — List user's outstanding debts
-
-### Deals (`/api/deals`)
-- `POST /api/deals` — Create deal for a `resourceId` **or** `skillId` (blocked with `DEBT_BLOCK` if debt exists)
-- `GET /api/deals` — List deals (supports `category`, `status`, `limit`, `offset`)
-- `GET /api/deals/nearby` — PostGIS proximity search (`lat`, `lng`, `radiusKm`, `limit`, `offset`)
-- `GET /api/deals/:id` — Get deal details
-- `PATCH /api/deals/:id` — Update deal (owner only)
-- `DELETE /api/deals/:id` — Delete deal (owner only)
-
-### Offers (`/api/offers` & `/api/deals/:id/offers`)
-- `POST /api/deals/:dealId/offers` — Submit offer (rejects own-deal offers, enforces 10% fee cap on resource deals & `DEBT_BLOCK`)
-- `GET /api/deals/:dealId/offers` — List offers for deal
-- `PATCH /api/offers/:id/accept` — Deal owner accepts: rejects sibling offers, creates a `transactions` row (chained via `parent_transaction_id` if the resource has prior custody history), and additionally creates a `contracts` row when the deal is resource-backed
-- `PATCH /api/offers/:id/reject` — Deal owner rejects offer
-- `PATCH /api/offers/:id/withdraw` — Provider withdraws own offer
+### Wallet & Ledger (`/api/wallet`)
+- `GET /api/wallet` — View current balance and locked escrow amount
+- `POST /api/wallet/deposit` — Deposit testing coins (`{ "amount": 500 }`)
+- `GET /api/wallet/ledger` — View paginated ledger entries (`limit`, `offset`)
+- `GET /api/wallet/debts` — View outstanding debts blocking operations
 
 ### Resources (`/api/resources`)
-- `POST /api/resources` — Register a physical resource with `declaredValue`, `lat`, `lng`
-- `GET /api/resources/mine` — List my resources
-- `GET /api/resources/nearby` — PostGIS proximity search
-- `GET /api/resources/:resourceId/chain` — Full recursive custody chain for the resource, with non-participant hops privacy-redacted
-- `GET /api/resources/:id` — Get resource by ID
-- `PATCH /api/resources/:id` — Update resource (owner only)
-- `DELETE /api/resources/:id` — Delete resource (owner only)
+- `POST /api/resources` — Register physical tool/resource with `declaredValue`, `securityDepositRate`, `lat`, `lng`
+- `GET /api/resources/me` — List caller's registered resources
+- `GET /api/resources/nearby` — PostGIS radial search (`lat`, `lng`, `radiusKm`)
+- `GET /api/resources/:id` — Retrieve resource details and current holder
+- `GET /api/resources/:id/chain` — Recursive custody chain with third-party privacy redaction
+- `PATCH /api/resources/:id` — Update resource details (guarded against changes during active deals)
+- `DELETE /api/resources/:id` — Remove resource listing
 
-### Skills (`/api/skills`) — ⚠️ implemented but not yet mounted
-- `POST /api/skills` — Register a skill/service offering (`name` required)
-- `GET /api/skills/mine` — List my skills
-- `GET /api/skills/:id` — Get skill by ID
-- `PATCH /api/skills/:id` — Update skill (owner only)
-- `DELETE /api/skills/:id` — Delete skill (owner only)
+### Deals (`/api/deals`)
+- `POST /api/deals` — Create listing/request for a resource (`DEBT_BLOCK` protected)
+- `GET /api/deals` — List active deals with filters (`category`, `status`, `limit`, `offset`)
+- `GET /api/deals/nearby` — PostGIS proximity search (`lat`, `lng`, `radiusKm`)
+- `GET /api/deals/:id` — Get deal details
+- `PATCH /api/deals/:id` — Update deal listing (owner only)
+- `DELETE /api/deals/:id` — Cancel/delete deal listing (owner only)
 
-  `src/routes/skill.route.ts` and `src/controllers/skill.controller.ts` are fully written and covered by the E2E suite, but `src/app.ts` never calls `app.use("/api/skills", skillRoutes)`. Until that line is added, every route above 404s — mount it before relying on skill-based deals end-to-end.
+### Offers (`/api/offers`)
+- `POST /api/deals/:dealId/offers` — Submit offer on deal (enforces 10% fee cap & payer debt checks)
+- `GET /api/deals/:dealId/offers` — List offers for a deal
+- `PATCH /api/offers/:id/accept` — Accept offer (captures 5% platform fee, creates contract & transaction, locks escrow)
+- `PATCH /api/offers/:id/reject` — Reject offer
+- `PATCH /api/offers/:id/withdraw` — Withdraw submitted offer
 
-### Transactions (`/api/transactions` & nested under resources)
-- `GET /api/transactions/:id` — Get a single transaction (participant-only, `FORBIDDEN` otherwise)
-- `GET /api/resources/:resourceId/chain` — see Resources above; same underlying chain, indexed by resource instead of transaction id
+### Contracts Lifecycle (`/api/contracts`)
+- `GET /api/contracts` — List caller's contracts
+- `GET /api/contracts/:id` — Retrieve contract status, escrow breakdown, and dispute window
+- `POST /api/contracts/:id/confirm` — Confirm participation, reveal contact info, transfer custody
+- `POST /api/contracts/:id/cancel` — Cancel before checkout (90% refund, 10% cancellation fee)
+- `POST /api/contracts/:id/checkout` — Mark item picked up (`active`)
+- `POST /api/contracts/:id/return` — Mark item returned, release lend fee immediately, start 24h dispute timer
+- `POST /api/contracts/:id/dispute-condition` — Flag item condition / file dispute report
+- `POST /api/contracts/:id/rate` — Submit rating for other party
 
-### Discovery (`/api/discovery`)
-- `GET /api/discovery/nearby` — Combined map feed: buckets nearby open deals into `needs` (open requests) and `offers` (in-progress / `Offer`-category), each with an approximate `distanceKm`, keyed around `{ lat, lng, radiusKm }`
-
-### Contracts (`/api/contracts`, resource-backed deals only)
-- `GET /api/contracts` — List my contracts
-- `GET /api/contracts/:id` — Get contract details
-- `POST /api/contracts/:id/confirm` — Requester confirms contract & locks escrow (rental fee + security deposit)
-- `POST /api/contracts/:id/checkout` — Provider hands over resource (`status -> active`, custody moves to requester)
-- `POST /api/contracts/:id/return` — Requester returns item (`status -> returned`, custody returns to provider, opens a 24h dispute window)
-- `POST /api/contracts/:id/cancel` — Cancel contract (refunds locked escrow if already confirmed)
-
-### Reports & Disputes (`/api/reports`)
-- `POST /api/reports` — File dispute against a contract you're a party to (flags contract `condition_disputed = true`, `status -> disputed`)
-- `GET /api/reports` — List user's own reports, or all reports if admin (`status` filter supported)
-- `GET /api/reports/:id` — Get report details
-- `POST /api/reports/:id/resolve` — Admin-only resolution, always pays out the rental fee first, then branches:
-  - `damage`: Award up to the security deposit as a penalty to the provider, refund any remaining deposit to the requester. If `damageAward > securityDeposit`, the shortfall is recorded as a `debts` row against the requester and a reliability strike is applied.
-  - `dismissed`: Refund the full deposit to the requester.
-  - `overcharge`: Apply a reliability strike to the provider, refund the full deposit to the requester.
-
-  Every path ends by setting the contract to `completed`.
+### Admin & Disputes (`/api/admin`)
+- `GET /api/admin/users` — List system profiles with pagination
+- `GET /api/admin/users/:id` — View specific profile
+- `PATCH /api/admin/users/:id/role` — Promote/demote user roles (`user` | `admin`)
+- `DELETE /api/admin/users/:id` — Delete user profile
+- `GET /api/admin/reports` — List dispute reports with status filter
+- `POST /api/admin/reports/:id/resolve` — Resolve dispute (awards damages, applies debts & reliability strikes)
 
 ---
 
-## Full Route Table
+## 5. Automated Background Jobs
 
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| GET | `/api` | — | Health check |
-| POST | `/api/auth/register` | — | |
-| POST | `/api/auth/login` | — | |
-| GET | `/api/auth/me` | ✓ | |
-| POST | `/api/auth/logout` | — | |
-| POST | `/api/auth/refresh` | — | reads `refreshToken` cookie |
-| POST | `/api/auth/google` | — | |
-| PATCH | `/api/auth/update` | ✓ | |
-| PATCH | `/api/auth/change-password` | ✓ | |
-| GET | `/api/admin/users` | ✓ admin | |
-| GET | `/api/admin/users/:id` | ✓ admin | |
-| PATCH | `/api/admin/users/:id/role` | ✓ admin | |
-| DELETE | `/api/admin/users/:id` | ✓ admin | |
-| GET | `/api/wallet` | ✓ | |
-| POST | `/api/wallet/deposit` | ✓ | |
-| GET | `/api/wallet/ledger` | ✓ | |
-| GET | `/api/wallet/debts` | ✓ | |
-| POST | `/api/deals` | ✓ | |
-| GET | `/api/deals` | — | |
-| GET | `/api/deals/nearby` | — | |
-| GET | `/api/deals/:id` | — | |
-| PATCH | `/api/deals/:id` | ✓ | owner only |
-| DELETE | `/api/deals/:id` | ✓ | owner only |
-| POST | `/api/deals/:dealId/offers` | ✓ | |
-| GET | `/api/deals/:dealId/offers` | — | |
-| PATCH | `/api/offers/:id/accept` | ✓ | deal owner only |
-| PATCH | `/api/offers/:id/reject` | ✓ | deal owner only |
-| PATCH | `/api/offers/:id/withdraw` | ✓ | provider only |
-| POST | `/api/resources` | ✓ | |
-| GET | `/api/resources/mine` | ✓ | |
-| GET | `/api/resources/nearby` | — | |
-| GET | `/api/resources/:resourceId/chain` | ✓ | |
-| GET | `/api/resources/:id` | — | |
-| PATCH | `/api/resources/:id` | ✓ | owner only |
-| DELETE | `/api/resources/:id` | ✓ | owner only |
-| POST | `/api/skills` | ✓ | **not mounted — see Skills note** |
-| GET | `/api/skills/mine` | ✓ | **not mounted** |
-| GET | `/api/skills/:id` | — | **not mounted** |
-| PATCH | `/api/skills/:id` | ✓ | **not mounted** |
-| DELETE | `/api/skills/:id` | ✓ | **not mounted** |
-| GET | `/api/transactions/:id` | ✓ | participant only |
-| GET | `/api/discovery/nearby` | — | |
-| GET | `/api/contracts` | ✓ | |
-| GET | `/api/contracts/:id` | ✓ | participant only |
-| POST | `/api/contracts/:id/confirm` | ✓ | requester only |
-| POST | `/api/contracts/:id/checkout` | ✓ | provider only |
-| POST | `/api/contracts/:id/return` | ✓ | requester only |
-| POST | `/api/contracts/:id/cancel` | ✓ | participant only |
-| POST | `/api/reports` | ✓ | contract participant only |
-| GET | `/api/reports` | ✓ | |
-| GET | `/api/reports/:id` | ✓ | |
-| POST | `/api/reports/:id/resolve` | ✓ admin | |
-
----
-
-## Cron Settlement Script
-
-Auto-settles any `returned` contract whose 24h dispute window has elapsed undisputed — pays the rental fee to the provider and releases the security deposit back to the requester, then marks the contract `completed`. Re-validates each contract's state inside its own transaction immediately before settling (see Invariant 3).
+### Dispute Deadline Settlement Cron (`scripts/settle-contracts.ts`)
+Runs periodically or on schedule to find contracts past their 24h dispute deadline where no dispute was filed, automatically releasing the security deposit to the requester and marking the contract `completed`.
 
 ```bash
-# Windows PowerShell
-.\node_modules\.bin\tsx scripts/settle-contracts.ts
-
-# Linux / Bash
 npx tsx scripts/settle-contracts.ts
 ```
 
 ---
 
-## Running Test Suites
+## 6. Running Tests
 
-All test files are standalone TypeScript scripts run directly through `tsx` against a real running instance of `src/app.ts` and a real Postgres database (via `supertest`) — there is no Jest runner in the loop despite `jest.config.js` being present in the repo. Each file uses a lightweight local `test(name, fn)` helper that logs `✓`/`✗` per case and sets `process.exitCode = 1` on the first failure, so a suite's exit code reflects pass/fail.
+Execute the full suite of 10 automated test suites across all backend components:
 
-### Suites covered by the automated runners
-`scripts/run-tests.sh` / `scripts/run-tests.ps1` execute these nine files in order and print a pass/fail summary:
-
-| File | Covers |
-|---|---|
-| `tests/auth.test.ts` | Register/login validation, duplicate email & username collisions, profile update, refresh + rotation, change-password, logout & cookie invalidation |
-| `tests/admin.test.ts` | Admin-only guarding, list/get/promote/demote/delete users, self-role-change protection, post-delete 404s |
-| `tests/deals.test.ts` | Deal CRUD, nearby PostGIS search, owner-only update/delete enforcement |
-| `tests/offers.test.ts` | Own-deal offer rejection, accept/reject/withdraw flows, re-accept protection, `FEE_EXCEEDS_CAP` |
-| `tests/resources.test.ts` | Resource CRUD, `mine`/`nearby` listing, empty custody chain for untransacted resources, owner-only enforcement |
-| `tests/transactions.test.ts` | Multi-hop custody chain (A→B→C→D), holder updates after each hop, per-hop privacy redaction for non-participants, parent-chain linkage |
-| `tests/wallet.test.ts` | Wallet auto-creation at zero balance, deposit validation, ledger entries, empty debts list |
-| `tests/contracts.test.ts` | Full contract lifecycle (`created → confirmed → active → returned`), `INSUFFICIENT_BALANCE` guard, `DEBT_BLOCK` on deals/offers |
-| `tests/reports.test.ts` | Dispute filing flags the contract, `damage` resolution above the security deposit creates a debt + reliability strike |
-
-```bash
-# Windows PowerShell
-.\scripts\run-tests.ps1
-
-# Linux / Bash
-./scripts/run-tests.sh
+### On Windows (PowerShell):
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run-tests.ps1
 ```
 
-### End-to-end narrative suite (run separately)
-`tests/e2e_full_suite.test.ts` walks a single continuous story across four users (A–D): registration, profile updates, password change, admin promotion, skill creation, resource creation, a two-hop resource chain (A→B→C), chain visibility/redaction, and transaction participant-access checks. It is **not** part of `run-tests.sh` / `run-tests.ps1` and must be run on its own:
-
+### On Linux / macOS (Bash):
 ```bash
+bash ./scripts/run-tests.sh
+```
+
+### Individual Test Suites:
+```bash
+npx tsx tests/auth.test.ts
+npx tsx tests/admin.test.ts
+npx tsx tests/wallet.test.ts
+npx tsx tests/resources.test.ts
+npx tsx tests/deals.test.ts
+npx tsx tests/offers.test.ts
+npx tsx tests/contracts.test.ts
+npx tsx tests/reports.test.ts
+npx tsx tests/transactions.test.ts
 npx tsx tests/e2e_full_suite.test.ts
 ```
 
-> This suite calls `POST /api/skills` and `GET /api/skills/mine`, both of which currently 404 because the skill router isn't mounted (see the Skills note above) — mount `skillRoutes` in `src/app.ts` before running it end-to-end.
-
-### Interactive UI Test Dashboard
-Open `tests/test-dashboard.html` in any modern web browser to interactively test and debug all endpoints in real time. `tests/index.html` and `tests/map.test.html` provide a lighter-weight endpoint list and a PostGIS nearby-search/map visualizer respectively.
-
 ---
 
-## Environment Setup
+## 7. Interactive Test Cockpit
 
-Copy `.env.example` to `.env` and fill in:
-
-```
-PORT=3000
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY=
-FIREBASE_API_KEY=
-DB_HOST=
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=
-SUPABASE_URI=
-DB_PASSWORD=
-```
-
-```bash
-npm install
-npm run migrate   # runs scripts/migrate.ts against the migrations/ folder
-npm run dev       # nodemon + tsx, http://localhost:3000
-```
-
+Open `tests/test-dashboard.html` in your browser to run live API calls, test coin grants, simulate the multi-hop custody chain, and inspect double-entry ledger entries in real time.

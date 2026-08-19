@@ -14,10 +14,11 @@ import {
     insertTransaction,
     findLatestTransactionForResource,
 } from "../models/transaction.model";
-import { updateResourceHolder, findResourceById } from "../models/resource.model";
-import { checkUserHasDebt, getOrCreateWallet } from "./wallet.service";
+import { findResourceById } from "../models/resource.model";
+import { checkUserHasDebt, getOrCreateWallet, hasOutstandingDebt } from "./wallet.service";
 import { findWalletByUserId } from "../models/wallet.model";
 import { insertContract } from "../models/contract.model";
+import { captureFee, lockEscrow } from "./ledger.service";
 
 interface CreateOfferInput {
     price?: number;
@@ -132,7 +133,14 @@ export const acceptOffer = async (
 
         // 1. Concurrency Guard: Wallet row lock (FOR UPDATE)
         await getOrCreateWallet(requesterId, client);
-        await findWalletByUserId(requesterId, true, client);
+        const wallet = await findWalletByUserId(requesterId, true, client);
+        if (!wallet) throw badRequest("Wallet not found", "WALLET_NOT_FOUND");
+
+        // 2. Debt check on payer
+        const payerHasDebt = await hasOutstandingDebt(requesterId, client);
+        if (payerHasDebt) {
+            throw forbidden("User has outstanding debt. Clear debts before accepting offers.", "DEBT_OUTSTANDING");
+        }
 
         const offer = await findOfferById(offerId, client);
         if (!offer) throw notFound("Offer not found", "OFFER_NOT_FOUND");
@@ -144,48 +152,78 @@ export const acceptOffer = async (
         if (offer.status !== "pending") throw conflict("Offer is not pending", "OFFER_NOT_PENDING");
         if (deal.status !== "open") throw conflict("Deal is not open", "DEAL_NOT_OPEN");
 
+        if (!deal.resource_id) {
+            throw badRequest("Deal does not have an associated resource", "INVALID_DEAL");
+        }
+
+        const resource = await findResourceById(deal.resource_id, client);
+        if (!resource) throw notFound("Resource not found", "RESOURCE_NOT_FOUND");
+
+        const declaredValue = Number(resource.declared_value || 0);
+        const depositRate = Number(resource.security_deposit_rate || 0.15);
+        const lendFee = offer.price !== undefined && offer.price !== null
+            ? Number(offer.price)
+            : declaredValue * 0.10;
+        const securityAmount = declaredValue * depositRate;
+        const platformFee = declaredValue * 0.05;
+        const totalRequired = lendFee + securityAmount + platformFee;
+
+        const availableBalance = Number(wallet.balance);
+        if (availableBalance < totalRequired) {
+            throw badRequest(
+                `Insufficient wallet balance. Required: ₹${totalRequired.toFixed(2)} (fee ₹${lendFee.toFixed(2)} + deposit ₹${securityAmount.toFixed(2)} + platform ₹${platformFee.toFixed(2)}), available: ₹${availableBalance.toFixed(2)}`,
+                "INSUFFICIENT_BALANCE"
+            );
+        }
+
+        // 3. Platform fee capture
+        if (platformFee > 0) {
+            await captureFee(requesterId, platformFee, client);
+        }
+
+        // 4. Reject other offers & update statuses
         await rejectOtherOffers(deal.id, offerId, client);
         const acceptedOffer = await updateOfferStatus(offerId, "accepted", client);
         await updateDealStatus(deal.id, "offer_accepted", client);
 
-        if (deal.resource_id) {
-            const resource = await findResourceById(deal.resource_id, client);
-            const parent = await findLatestTransactionForResource(deal.resource_id, client);
+        // 5. Insert contract row with frozen values
+        const contract = await insertContract({
+            dealId: deal.id,
+            offerId,
+            resourceId: deal.resource_id,
+            requesterId: deal.user_id,
+            providerId: offer.provider_id,
+            rentalFee: lendFee,
+            securityDeposit: securityAmount,
+            declaredValue,
+            lendFee,
+            securityAmount,
+            platformFee,
+            securityDepositRate: depositRate,
+            status: "created",
+        }, client);
 
-            await insertTransaction({
-                dealId: deal.id,
-                offerId,
-                fromUserId: deal.user_id,
-                toUserId: offer.provider_id,
-                resourceId: deal.resource_id,
-                skillId: null,
-                parentTransactionId: parent?.id ?? null,
-            }, client);
+        // 6. Insert transaction row for chain tracking
+        const parent = await findLatestTransactionForResource(deal.resource_id, client);
+        await insertTransaction({
+            dealId: deal.id,
+            offerId,
+            fromUserId: deal.user_id,
+            toUserId: offer.provider_id,
+            resourceId: deal.resource_id,
+            parentTransactionId: parent?.id ?? null,
+            declaredValue,
+            lendFee,
+            securityAmount,
+            platformFee,
+            securityDepositRate: depositRate,
+            status: "agreement_created",
+        }, client);
 
-            await updateResourceHolder(deal.resource_id, offer.provider_id, client);
+        // 7. Lock escrow (lendFee + securityAmount) against the contract
+        await lockEscrow(requesterId, lendFee + securityAmount, contract.id, client);
 
-            // Create contract record
-            await insertContract({
-                dealId: deal.id,
-                offerId,
-                resourceId: deal.resource_id,
-                requesterId: deal.user_id,
-                providerId: offer.provider_id,
-                rentalFee: Number(offer.price || 0),
-                securityDeposit: Number(resource?.declared_value || 0),
-                status: "created",
-            }, client);
-        } else if (deal.skill_id) {
-            await insertTransaction({
-                dealId: deal.id,
-                offerId,
-                fromUserId: offer.provider_id,
-                toUserId: deal.user_id,
-                resourceId: null,
-                skillId: deal.skill_id,
-                parentTransactionId: null,
-            }, client);
-        }
+        // NOTE: updateResourceHolder is NOT called here — custody moves in confirmContract / checkout
 
         await client.query("COMMIT");
         return acceptedOffer!;

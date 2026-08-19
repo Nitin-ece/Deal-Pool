@@ -8,7 +8,8 @@ export interface Resource {
     description: string | null;
     category: string | null;
     condition: string | null;
-    declared_value?: number | string;
+    declared_value: number | string;
+    security_deposit_rate: number | string;
     lat: number;
     lng: number;
     is_available: boolean;
@@ -18,27 +19,43 @@ export interface Resource {
 }
 
 const SELECT_LIST = `
-    id, owner_id, title, description, category, condition, declared_value,
+    id, owner_id, title, description, category, condition, declared_value, security_deposit_rate,
     ST_Y(location::geometry) AS lat,
     ST_X(location::geometry) AS lng,
     is_available, current_holder_id, created_at, updated_at
 `;
 
 export const insertResource = async (params: {
-    ownerId: string; title: string; description: string | null;
-    category: string | null; condition: string | null;
-    declaredValue?: number | null;
-    lat: number; lng: number;
-}): Promise<Resource> => {
-    const result = await pool.query(
+    ownerId: string;
+    title: string;
+    description: string | null;
+    category: string | null;
+    condition: string | null;
+    declaredValue: number;
+    securityDepositRate: number;
+    lat: number;
+    lng: number;
+}, client?: PoolClient): Promise<Resource> => {
+    const executor = client ?? pool;
+    const result = await executor.query(
         `
         INSERT INTO resources (
-            owner_id, title, description, category, condition, declared_value, location, current_holder_id
+            owner_id, title, description, category, condition, declared_value, security_deposit_rate, location, current_holder_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, ST_MakePoint($7, $8)::geography, $1)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, ST_MakePoint($8, $9)::geography, $1)
         RETURNING ${SELECT_LIST}
         `,
-        [params.ownerId, params.title, params.description, params.category, params.condition, params.declaredValue ?? 0, params.lng, params.lat]
+        [
+            params.ownerId,
+            params.title,
+            params.description,
+            params.category,
+            params.condition,
+            params.declaredValue,
+            params.securityDepositRate,
+            params.lng,
+            params.lat,
+        ]
     );
     return result.rows[0];
 };
@@ -55,8 +72,12 @@ export const findResourceById = async (
     return result.rows[0] ?? null;
 };
 
-export const listResourcesByOwner = async (ownerId: string): Promise<Resource[]> => {
-    const result = await pool.query(
+export const listResourcesByOwner = async (
+    ownerId: string,
+    client?: PoolClient
+): Promise<Resource[]> => {
+    const executor = client ?? pool;
+    const result = await executor.query(
         `SELECT ${SELECT_LIST} FROM resources WHERE owner_id = $1 ORDER BY created_at DESC`,
         [ownerId]
     );
@@ -64,9 +85,15 @@ export const listResourcesByOwner = async (ownerId: string): Promise<Resource[]>
 };
 
 export const findNearbyResources = async (
-    lat: number, lng: number, radiusKm: number, limit: number, offset: number
+    lat: number,
+    lng: number,
+    radiusKm: number,
+    limit: number,
+    offset: number,
+    client?: PoolClient
 ): Promise<(Resource & { distance_km: number })[]> => {
-    const result = await pool.query(
+    const executor = client ?? pool;
+    const result = await executor.query(
         `
         SELECT ${SELECT_LIST},
             ST_Distance(location, ST_MakePoint($1, $2)::geography) / 1000 AS distance_km
@@ -83,15 +110,17 @@ export const findNearbyResources = async (
 
 export const updateResourceFields = async (
     id: string,
-    fields: Record<string, unknown>
+    fields: Record<string, unknown>,
+    client?: PoolClient
 ): Promise<Resource | null> => {
+    const executor = client ?? pool;
     const keys = Object.keys(fields);
-    if (keys.length === 0) return findResourceById(id);
+    if (keys.length === 0) return findResourceById(id, client);
 
     const setClauses = keys.map((key, index) => `${key} = $${index + 2}`);
     const values = keys.map((key) => fields[key]);
 
-    const result = await pool.query(
+    const result = await executor.query(
         `
         UPDATE resources
         SET ${setClauses.join(", ")}, updated_at = now()
@@ -121,10 +150,31 @@ export const updateResourceHolder = async (
     return result.rows[0] ?? null;
 };
 
-export const deleteResource = async (id: string): Promise<Resource | null> => {
-    const result = await pool.query(
+export const deleteResource = async (
+    id: string,
+    client?: PoolClient
+): Promise<Resource | null> => {
+    const executor = client ?? pool;
+    const result = await executor.query(
         `DELETE FROM resources WHERE id = $1 RETURNING ${SELECT_LIST}`,
         [id]
     );
     return result.rows[0] ?? null;
+};
+
+export const hasActiveDealForResource = async (
+    resourceId: string,
+    client?: PoolClient
+): Promise<boolean> => {
+    const executor = client ?? pool;
+    const result = await executor.query(
+        `
+        SELECT 1 FROM deals
+        WHERE resource_id = $1
+          AND status IN ('open', 'offer_accepted')
+        LIMIT 1
+        `,
+        [resourceId]
+    );
+    return (result.rowCount ?? 0) > 0;
 };

@@ -14,7 +14,6 @@ export interface Deal {
     radius_km: number;
     status: "open" | "offer_accepted" | "completed" | "cancelled";
     resource_id: string | null;
-    skill_id: string | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -32,7 +31,6 @@ const SELECT_LIST = `
     radius_km,
     status,
     resource_id,
-    skill_id,
     created_at,
     updated_at
 `;
@@ -48,19 +46,18 @@ export const insertDeal = async (params: {
     lng: number;
     radiusKm: number;
     resourceId?: string | null;
-    skillId?: string | null;
 }): Promise<Deal> => {
     const result = await pool.query(
         `
         INSERT INTO deals (
             user_id, title, description, category,
-            budget_min, budget_max, location, radius_km
-            , resource_id, skill_id
+            budget_min, budget_max, location, radius_km,
+            resource_id
         )
         VALUES (
             $1, $2, $3, $4, $5, $6,
             ST_MakePoint($7, $8)::geography, $9,
-            $10, $11
+            $10
         )
         RETURNING ${SELECT_LIST}
         `,
@@ -75,7 +72,6 @@ export const insertDeal = async (params: {
             params.lat,
             params.radiusKm,
             params.resourceId ?? null,
-            params.skillId ?? null,
         ]
     );
 
@@ -88,9 +84,6 @@ export const findDealById = async (
 ): Promise<Deal | null> => {
     const executor = client ?? pool;
     const result = await executor.query(
-        // FOR UPDATE locks the row for the duration of the transaction —
-        // serializes concurrent offer accepts on the same deal so only the
-        // first sees status = 'open'. Outside a transaction it's a no-op.
         `SELECT ${SELECT_LIST} FROM deals WHERE id = $1${client ? " FOR UPDATE" : ""}`,
         [id]
     );

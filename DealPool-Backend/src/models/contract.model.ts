@@ -3,9 +3,11 @@ import type { PoolClient } from "pg";
 
 export type ContractStatus =
     | "created"
+    | "pending_confirmation"
     | "confirmed"
     | "active"
     | "returned"
+    | "returned_pending_dispute"
     | "completed"
     | "disputed"
     | "cancelled";
@@ -19,11 +21,21 @@ export interface Contract {
     provider_id: string;
     rental_fee: number | string;
     security_deposit: number | string;
+    declared_value: number | string;
+    lend_fee: number | string;
+    security_amount: number | string;
+    platform_fee: number | string;
+    security_deposit_rate: number | string;
     status: ContractStatus;
+    requester_confirmed: boolean;
+    provider_confirmed: boolean;
+    confirm_deadline: Date | null;
+    contact_revealed: boolean;
     checked_out_at: Date | null;
     returned_at: Date | null;
     dispute_deadline: Date | null;
     condition_disputed: boolean;
+    cancel_reason: string | null;
     created_at: Date;
     updated_at: Date;
 }
@@ -35,8 +47,13 @@ export const insertContract = async (
         resourceId: string;
         requesterId: string;
         providerId: string;
-        rentalFee: number;
-        securityDeposit: number;
+        rentalFee?: number;
+        securityDeposit?: number;
+        declaredValue?: number;
+        lendFee?: number;
+        securityAmount?: number;
+        platformFee?: number;
+        securityDepositRate?: number;
         status?: ContractStatus;
     },
     client?: PoolClient
@@ -46,9 +63,10 @@ export const insertContract = async (
         `
         INSERT INTO contracts (
             deal_id, offer_id, resource_id, requester_id, provider_id,
-            rental_fee, security_deposit, status
+            rental_fee, security_deposit, declared_value, lend_fee, security_amount,
+            platform_fee, security_deposit_rate, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
         `,
         [
@@ -57,8 +75,13 @@ export const insertContract = async (
             params.resourceId,
             params.requesterId,
             params.providerId,
-            params.rentalFee,
-            params.securityDeposit,
+            params.rentalFee ?? params.lendFee ?? 0,
+            params.securityDeposit ?? params.securityAmount ?? 0,
+            params.declaredValue ?? 0,
+            params.lendFee ?? params.rentalFee ?? 0,
+            params.securityAmount ?? params.securityDeposit ?? 0,
+            params.platformFee ?? 0,
+            params.securityDepositRate ?? 0.15,
             params.status ?? "created",
         ]
     );
@@ -101,6 +124,10 @@ export const updateContractStatus = async (
         returnedAt?: Date | null;
         disputeDeadline?: Date | null;
         conditionDisputed?: boolean;
+        requesterConfirmed?: boolean;
+        providerConfirmed?: boolean;
+        contactRevealed?: boolean;
+        cancelReason?: string | null;
     } = {},
     client?: PoolClient
 ): Promise<Contract | null> => {
@@ -125,6 +152,22 @@ export const updateContractStatus = async (
         clauses.push(`condition_disputed = $${idx++}`);
         values.push(extraFields.conditionDisputed);
     }
+    if (extraFields.requesterConfirmed !== undefined) {
+        clauses.push(`requester_confirmed = $${idx++}`);
+        values.push(extraFields.requesterConfirmed);
+    }
+    if (extraFields.providerConfirmed !== undefined) {
+        clauses.push(`provider_confirmed = $${idx++}`);
+        values.push(extraFields.providerConfirmed);
+    }
+    if (extraFields.contactRevealed !== undefined) {
+        clauses.push(`contact_revealed = $${idx++}`);
+        values.push(extraFields.contactRevealed);
+    }
+    if (extraFields.cancelReason !== undefined) {
+        clauses.push(`cancel_reason = $${idx++}`);
+        values.push(extraFields.cancelReason);
+    }
 
     const result = await executor.query(
         `
@@ -145,7 +188,7 @@ export const findContractsPastDisputeDeadline = async (
     const result = await executor.query(
         `
         SELECT * FROM contracts
-        WHERE status = 'returned'
+        WHERE (status = 'returned' OR status = 'returned_pending_dispute')
           AND condition_disputed = false
           AND dispute_deadline IS NOT NULL
           AND dispute_deadline < now()

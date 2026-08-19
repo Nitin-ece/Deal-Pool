@@ -76,6 +76,7 @@ try {
   await test("A creates a resource", async () => {
     const res = await request(app).post("/api/resources").set("Cookie", cookieA).send({
       title: "Chain Test Ladder",
+      declaredValue: 2000,
       lat: 37.5,
       lng: -122.5,
     });
@@ -83,7 +84,7 @@ try {
     resourceId = res.body.data?.id;
   });
 
-  await test("A lists deal, B offers and A accepts (hop 1: A -> B)", async () => {
+  await test("A lists deal, B offers, A accepts and confirms (hop 1: A -> B)", async () => {
     const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({
       title: "Hop 1 Deal",
       lat: 37.5,
@@ -99,6 +100,10 @@ try {
 
     const acceptRes = await request(app).patch(`/api/offers/${offerId}/accept`).set("Cookie", cookieA);
     if (acceptRes.status !== 200) throw new Error(`Expected 200 got ${acceptRes.status} ${JSON.stringify(acceptRes.body)}`);
+
+    const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieA);
+    const contractId = contractsRes.body.data[0].id;
+    await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieA);
   });
 
   await test("resource current_holder_id moved to B after hop 1", async () => {
@@ -109,7 +114,7 @@ try {
     }
   });
 
-  await test("B lists deal on same resource, C offers and B accepts (hop 2: B -> C)", async () => {
+  await test("B lists deal on same resource, C offers, B accepts and confirms (hop 2: B -> C)", async () => {
     const dealRes = await request(app).post("/api/deals").set("Cookie", cookieB).send({
       title: "Hop 2 Deal",
       lat: 37.5,
@@ -119,12 +124,16 @@ try {
     if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
     const dealId = dealRes.body.data?.id;
 
-    const offerRes = await request(app).post(`/api/deals/${dealId}/offers`).set("Cookie", cookieC).send({ price: 200 });
+    const offerRes = await request(app).post(`/api/deals/${dealId}/offers`).set("Cookie", cookieC).send({ price: 150 });
     if (offerRes.status !== 201) throw new Error(`Expected 201 got ${offerRes.status}`);
     const offerId = offerRes.body.data?.id;
 
     const acceptRes = await request(app).patch(`/api/offers/${offerId}/accept`).set("Cookie", cookieB);
     if (acceptRes.status !== 200) throw new Error(`Expected 200 got ${acceptRes.status} ${JSON.stringify(acceptRes.body)}`);
+
+    const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieB);
+    const contractId = contractsRes.body.data[0].id;
+    await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieB);
   });
 
   await test("C (current participant) sees full chain with hop 2 identities and hop 1 redacted", async () => {

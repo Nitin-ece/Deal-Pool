@@ -83,18 +83,21 @@ export const getReport = async (
 export const listAllReports = async (
     userId: string,
     isAdmin = false,
-    statusFilter?: ReportStatus
+    statusFilter?: string,
+    reasonFilter?: string
 ): Promise<Report[]> => {
     if (isAdmin) {
-        return listReports({ status: statusFilter });
+        return listReports({ status: statusFilter, reason: reasonFilter });
     }
-    return listReports({ reporterId: userId, status: statusFilter });
+    return listReports({ reporterId: userId, status: statusFilter, reason: reasonFilter });
 };
 
 export interface ResolveDisputeInput {
-    outcome: "damage" | "dismissed" | "overcharge";
+    outcome?: "damage" | "dismissed" | "overcharge" | "upheld";
+    decision?: "upheld" | "dismissed" | "damage" | "overcharge";
     damageAward?: number;
     notes?: string;
+    note?: string;
 }
 
 export const resolveDispute = async (
@@ -102,6 +105,14 @@ export const resolveDispute = async (
     adminId: string,
     input: ResolveDisputeInput
 ): Promise<Report> => {
+    const decision = input.decision || input.outcome;
+    const notes = input.notes || input.note;
+    const damageAward = input.damageAward ?? 0;
+
+    if (!decision) {
+        throw badRequest("Decision or outcome is required", "MISSING_DECISION");
+    }
+
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
@@ -115,29 +126,28 @@ export const resolveDispute = async (
         const contract = await findContractById(report.contract_id, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
 
-        const rentalFee = Number(contract.rental_fee || 0);
-        const securityAmount = Number(contract.security_deposit || 0);
+        const rentalFee = Number(contract.rental_fee || contract.lend_fee || 0);
+        const securityAmount = Number(contract.security_deposit || contract.security_amount || 0);
         const requesterId = contract.requester_id;
         const providerId = contract.provider_id;
         const contractId = contract.id;
 
-        // Payout standard rental fee to provider
-        if (rentalFee > 0) {
+        // Payout standard rental fee to provider if not already returned
+        if (!contract.returned_at && rentalFee > 0) {
             await releaseEscrow(
                 contractId,
                 requesterId,
                 providerId,
                 rentalFee,
-                "escrow_payout_fee",
+                "escrow_release_fee",
                 client,
                 `Rental fee payout on dispute resolution for contract ${contractId}`
             );
         }
 
         let resolvedStatus: ReportStatus;
-        const damageAward = input.damageAward ?? 0;
 
-        if (input.outcome === "damage") {
+        if (decision === "damage" || (decision === "upheld" && report.reason === "damage_claim") || (decision === "upheld" && report.reason === "damage")) {
             resolvedStatus = "resolved_damage";
 
             if (damageAward > 0) {
@@ -186,7 +196,7 @@ export const resolveDispute = async (
                     );
                 }
             }
-        } else if (input.outcome === "dismissed") {
+        } else if (decision === "dismissed") {
             resolvedStatus = "resolved_dismissed";
             // Full deposit back to requester
             if (securityAmount > 0) {
@@ -200,7 +210,7 @@ export const resolveDispute = async (
                     `Full security deposit release on dismissed report for contract ${contractId}`
                 );
             }
-        } else if (input.outcome === "overcharge") {
+        } else if (decision === "overcharge" || (decision === "upheld" && report.reason === "overcharge")) {
             resolvedStatus = "resolved_overcharge";
             // Overcharge upheld: provider gets reliability strike
             await applyStrike(providerId, client);
@@ -226,7 +236,7 @@ export const resolveDispute = async (
                 status: resolvedStatus,
                 damageAward,
                 resolvedBy: adminId,
-                resolutionNotes: input.notes ?? null,
+                resolutionNotes: notes ?? null,
             },
             client
         );
@@ -242,3 +252,5 @@ export const resolveDispute = async (
         client.release();
     }
 };
+
+export const resolveReport = resolveDispute;

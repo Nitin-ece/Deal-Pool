@@ -8,9 +8,30 @@ export interface Transaction {
     from_user_id: string;
     to_user_id: string;
     resource_id: string | null;
-    skill_id: string | null;
     parent_transaction_id: string | null;
-    status: "agreement_created" | "confirmed" | "active" | "completed" | "disputed" | "cancelled";
+    declared_value: number | string;
+    lend_fee: number | string;
+    security_amount: number | string;
+    platform_fee: number | string;
+    security_deposit_rate: number | string;
+    requester_confirmed: boolean;
+    provider_confirmed: boolean;
+    confirm_deadline: Date | null;
+    contact_revealed: boolean;
+    condition_disputed: boolean;
+    dispute_deadline: Date | null;
+    cancel_reason: string | null;
+    proximity_flagged: boolean;
+    status:
+        | "agreement_created"
+        | "pending_confirmation"
+        | "confirmed"
+        | "active"
+        | "returned"
+        | "returned_pending_dispute"
+        | "completed"
+        | "disputed"
+        | "cancelled";
     checked_out_at: Date | null;
     returned_at: Date | null;
     completed_at: Date | null;
@@ -25,8 +46,13 @@ export const insertTransaction = async (
         fromUserId: string;
         toUserId: string;
         resourceId: string | null;
-        skillId: string | null;
-        parentTransactionId: string | null;
+        parentTransactionId?: string | null;
+        declaredValue?: number;
+        lendFee?: number;
+        securityAmount?: number;
+        platformFee?: number;
+        securityDepositRate?: number;
+        status?: string;
     },
     client?: PoolClient
 ): Promise<Transaction> => {
@@ -35,14 +61,25 @@ export const insertTransaction = async (
         `
         INSERT INTO transactions (
             deal_id, offer_id, from_user_id, to_user_id,
-            resource_id, skill_id, parent_transaction_id
+            resource_id, parent_transaction_id, declared_value,
+            lend_fee, security_amount, platform_fee, security_deposit_rate, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
         `,
         [
-            params.dealId, params.offerId, params.fromUserId, params.toUserId,
-            params.resourceId, params.skillId, params.parentTransactionId,
+            params.dealId,
+            params.offerId,
+            params.fromUserId,
+            params.toUserId,
+            params.resourceId,
+            params.parentTransactionId ?? null,
+            params.declaredValue ?? 0,
+            params.lendFee ?? 0,
+            params.securityAmount ?? 0,
+            params.platformFee ?? 0,
+            params.securityDepositRate ?? 0.15,
+            params.status ?? "agreement_created",
         ]
     );
     return result.rows[0];

@@ -74,7 +74,7 @@ try {
     });
 
     await test("setup contract and move to returned status", async () => {
-        // Create resource & deal
+        // Create resource & deal (declaredValue: 200, tier deposit: 15% = 30)
         const resRes = await request(app).post("/api/resources").set("Cookie", cookieRequester).send({
             title: "Projector 4K",
             declaredValue: 200,
@@ -91,7 +91,7 @@ try {
         });
         dealId = dealRes.body.data?.id;
 
-        // Provider offers
+        // Provider offers (<= 10% of 200 = 20)
         const offerRes = await request(app).post(`/api/deals/${dealId}/offers`).set("Cookie", cookieProvider).send({
             price: 15,
             terms: "1 day use",
@@ -105,8 +105,7 @@ try {
         const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieRequester);
         contractId = contractsRes.body.data[0].id;
 
-        // Requester deposits funds and confirms (fee 15 + deposit 200 = 215)
-        await request(app).post("/api/wallet/deposit").set("Cookie", cookieRequester).send({ amount: 500 });
+        // Confirm
         await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieRequester);
 
         // Checkout and return
@@ -130,8 +129,16 @@ try {
         }
     });
 
+    await test("GET /api/admin/reports lists reports for admin", async () => {
+        const adminReportsRes = await request(app).get("/api/admin/reports").set("Cookie", cookieAdmin);
+        if (adminReportsRes.status !== 200) throw new Error(`Expected 200 got ${adminReportsRes.status}`);
+        if (!Array.isArray(adminReportsRes.body.data) || adminReportsRes.body.data.length === 0) {
+            throw new Error("Expected at least one report in admin listing");
+        }
+    });
+
     await test("POST /api/reports/:id/resolve with damage award > securityAmount creates debt and strike", async () => {
-        // Damage award is 300 (security deposit is 200 -> shortfall 100)
+        // Damage award is 300 (security deposit is 30 -> shortfall 270)
         const resolveRes = await request(app)
             .post(`/api/reports/${reportId}/resolve`)
             .set("Cookie", cookieAdmin)
@@ -145,13 +152,13 @@ try {
             throw new Error(`Expected resolved_damage got ${resolveRes.body.data?.status}`);
         }
 
-        // Verify debt recorded for requester
+        // Verify debt recorded for requester (300 - 30 = 270)
         const debtsRes = await request(app).get("/api/wallet/debts").set("Cookie", cookieRequester);
         if (!debtsRes.body.data || debtsRes.body.data.length === 0) {
             throw new Error("Expected debt to be recorded for requester");
         }
-        if (Number(debtsRes.body.data[0].amount) !== 100) {
-            throw new Error(`Expected debt amount 100, got ${debtsRes.body.data[0].amount}`);
+        if (Number(debtsRes.body.data[0].amount) !== 270) {
+            throw new Error(`Expected debt amount 270, got ${debtsRes.body.data[0].amount}`);
         }
 
         // Verify contract is completed

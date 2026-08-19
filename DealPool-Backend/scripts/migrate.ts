@@ -1,7 +1,11 @@
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
 // runs every .sql file in /migrations that hasn't been applied yet,
 // in filename order, tracked via a schema_migrations table
 import { readdir, readFile } from "fs/promises";
-import path from "path";
 import pool from "../src/config/db";
 
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "migrations");

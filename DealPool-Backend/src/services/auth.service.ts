@@ -1,3 +1,5 @@
+import pool from "../config/db";
+import type { PoolClient } from "pg";
 import { firebaseAuth } from "../config/firebase";
 import { generateUsername } from "../utils/username";
 import {
@@ -8,6 +10,7 @@ import {
     updateProfileFields,
     Profile,
 } from "../models/user.model";
+import { grantSignupBonus } from "./ledger.service";
 import { unauthorized, conflict, notFound, badRequest } from "../utils/errors";
 
 interface FirebaseAuthResponse {
@@ -96,8 +99,12 @@ export const registerUser = async (email: string, password: string) => {
         returnSecureToken: true,
     });
 
+    const client = await pool.connect();
     try {
-        const profile = await createProfile(firebaseUser.localId);
+        await client.query("BEGIN");
+        const profile = await createProfile(firebaseUser.localId, client);
+        await grantSignupBonus(profile.id, client);
+        await client.query("COMMIT");
 
         return {
             profile,
@@ -105,6 +112,7 @@ export const registerUser = async (email: string, password: string) => {
             refreshToken: firebaseUser.refreshToken,
         };
     } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
         try {
             await firebaseAuth.deleteUser(firebaseUser.localId);
         } catch (cleanupError) {
@@ -112,6 +120,8 @@ export const registerUser = async (email: string, password: string) => {
         }
 
         throw error;
+    } finally {
+        client.release();
     }
 };
 
@@ -175,7 +185,7 @@ export const refreshFirebaseToken = async (refreshToken: string | undefined) => 
     };
 };
 
-export const createProfile = async (uid: string): Promise<Profile> => {
+export const createProfile = async (uid: string, client?: PoolClient): Promise<Profile> => {
     const firebaseUser = await firebaseAuth.getUser(uid);
 
     const existing = await findProfileByFirebaseUid(uid);
@@ -196,7 +206,7 @@ export const createProfile = async (uid: string): Promise<Profile> => {
                 username,
                 email: firebaseUser.email ?? null,
                 profilePhoto: firebaseUser.photoURL ?? null,
-            });
+            }, client);
         } catch (error) {
             const pgError = error as { code?: string; constraint?: string };
 
@@ -254,7 +264,18 @@ export const googleLoginUser = async (idToken: string) => {
     let profile = await findProfile(decoded.uid);
 
     if (!profile) {
-        profile = await createProfile(decoded.uid);
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+            profile = await createProfile(decoded.uid, client);
+            await grantSignupBonus(profile.id, client);
+            await client.query("COMMIT");
+        } catch (error) {
+            await client.query("ROLLBACK").catch(() => {});
+            throw error;
+        } finally {
+            client.release();
+        }
     }
 
     return { profile, token: idToken };

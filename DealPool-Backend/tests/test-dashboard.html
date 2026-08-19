@@ -795,6 +795,7 @@
                         <div>✓ <code>tests/wallet.test.ts</code> — Wallet, Balance & Ledger Entries</div>
                         <div>✓ <code>tests/contracts.test.ts</code> — Contracts Lifecycle & Escrow Guard</div>
                         <div>✓ <code>tests/reports.test.ts</code> — Dispute Resolution, Penalties & Strikes</div>
+                        <div>✓ <code>tests/e2e_full_suite.test.ts</code> — Full Multi-Module Integration Suite</div>
                     </div>
                     <div class="btn-group" style="margin-top:10px;">
                         <button class="btn-primary" onclick="triggerHealthCheck()">Health Check (GET /api)</button>
@@ -1044,7 +1045,7 @@
         }
 
         async function apiListReports() {
-            await apiFetch("/api/reports");
+            await apiFetch("/api/admin/reports");
         }
 
         async function apiResolveDispute() {
@@ -1052,7 +1053,7 @@
             const outcome = document.getElementById("resolveOutcome").value;
             const damageAward = Number(document.getElementById("resolveDamageAward").value);
             const notes = document.getElementById("resolveNotes").value;
-            await apiFetch(`/api/reports/${reportId}/resolve`, { method: "POST", body: { outcome, damageAward, notes } });
+            await apiFetch(`/api/admin/reports/${reportId}/resolve`, { method: "POST", body: { outcome, damageAward, notes } });
         }
 
         // ADMIN HANDLERS

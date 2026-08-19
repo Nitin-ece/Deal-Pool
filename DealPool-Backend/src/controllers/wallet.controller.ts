@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import {
     getOrCreateWallet,
     depositFunds,
-    getWalletLedger,
+    getLedger,
     getUserDebts,
 } from "../services/wallet.service";
 import type { ApiResponse } from "../utils/responseApi";
@@ -48,7 +48,9 @@ export const getLedgerHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const ledger = await getWalletLedger(req.user!.uid);
+        const limit = req.query.limit ? Number(req.query.limit) : undefined;
+        const offset = req.query.offset ? Number(req.query.offset) : undefined;
+        const ledger = await getLedger(req.user!.uid, { limit, offset });
         const response: ApiResponse<typeof ledger> = {
             success: true,
             data: ledger,

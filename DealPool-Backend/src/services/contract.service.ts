@@ -7,8 +7,9 @@ import {
     updateContractStatus,
     Contract,
 } from "../models/contract.model";
-import { updateResourceHolder } from "../models/resource.model";
-import { lockEscrow, refundAllEscrow } from "./ledger.service";
+import { updateResourceHolder, findResourceById as findResourceByIdModel } from "../models/resource.model";
+import { lockEscrow, releaseEscrow, refundAllEscrow } from "./ledger.service";
+import { insertReport, ReportReason } from "../models/report.model";
 import { badRequest, notFound, forbidden, conflict } from "../utils/errors";
 
 export const getContract = async (
@@ -39,20 +40,34 @@ export const confirmContract = async (
 
         const contract = await findContractById(contractId, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
-        if (contract.requester_id !== userId) {
-            throw forbidden("Only the requester can confirm the contract", "FORBIDDEN");
-        }
-        if (contract.status !== "created") {
-            throw conflict(`Cannot confirm contract in status '${contract.status}'`, "INVALID_CONTRACT_STATUS");
+        if (contract.requester_id !== userId && contract.provider_id !== userId) {
+            throw forbidden("Not authorized to confirm this contract", "FORBIDDEN");
         }
 
-        const rentalFee = Number(contract.rental_fee || 0);
-        const securityDeposit = Number(contract.security_deposit || 0);
+        const isRequester = contract.requester_id === userId;
+        const isProvider = contract.provider_id === userId;
 
-        // Lock funds in escrow with FOR UPDATE wallet lock inside lockEscrow
-        await lockEscrow(contractId, userId, rentalFee, securityDeposit, client);
+        const requesterConfirmed = isRequester ? true : contract.requester_confirmed;
+        const providerConfirmed = isProvider ? true : contract.provider_confirmed;
 
-        const updated = await updateContractStatus(contractId, "confirmed", {}, client);
+        // If either party confirms, transition to confirmed and reveal contact
+        const updated = await updateContractStatus(
+            contractId,
+            "confirmed",
+            {
+                requesterConfirmed,
+                providerConfirmed,
+                contactRevealed: true,
+            },
+            client
+        );
+
+        // Move resource custody to the other party on confirmation
+        const resource = await findResourceByIdModel(contract.resource_id, client);
+        const newHolder = resource?.current_holder_id === contract.requester_id
+            ? contract.provider_id
+            : contract.requester_id;
+        await updateResourceHolder(contract.resource_id, newHolder, client);
 
         await client.query("COMMIT");
         return updated!;
@@ -66,7 +81,8 @@ export const confirmContract = async (
 
 export const cancelContract = async (
     contractId: string,
-    userId: string
+    userId: string,
+    reason?: string
 ): Promise<Contract> => {
     const client = await pool.connect();
     try {
@@ -77,16 +93,50 @@ export const cancelContract = async (
         if (contract.requester_id !== userId && contract.provider_id !== userId) {
             throw forbidden("Not authorized to cancel this contract", "FORBIDDEN");
         }
-        if (contract.status !== "created" && contract.status !== "confirmed") {
+        if (contract.status === "completed" || contract.status === "cancelled") {
             throw conflict(`Cannot cancel contract in status '${contract.status}'`, "INVALID_CONTRACT_STATUS");
         }
 
-        if (contract.status === "confirmed") {
-            // Refund locked escrow
-            await refundAllEscrow(contractId, contract.requester_id, client);
+        // 27/3 cancellation split: platform fee 3% of declared value, refund remainder of escrow
+        const declaredValue = Number(contract.declared_value || 0);
+        const cancellationFee = declaredValue * 0.03;
+
+        const rentalFee = Number(contract.rental_fee || contract.lend_fee || 0);
+        const securityDeposit = Number(contract.security_deposit || contract.security_amount || 0);
+        const totalEscrowed = rentalFee + securityDeposit;
+
+        const refundAmount = Math.max(0, totalEscrowed - cancellationFee);
+
+        if (refundAmount > 0) {
+            await releaseEscrow(
+                contractId,
+                contract.requester_id,
+                contract.requester_id,
+                refundAmount,
+                "escrow_release_security",
+                client,
+                `Cancellation refund for contract ${contractId}`
+            );
         }
 
-        const updated = await updateContractStatus(contractId, "cancelled", {}, client);
+        if (cancellationFee > 0) {
+            await releaseEscrow(
+                contractId,
+                contract.requester_id,
+                contract.requester_id,
+                cancellationFee,
+                "fee_capture",
+                client,
+                `Cancellation fee (3%) for contract ${contractId}`
+            );
+        }
+
+        const updated = await updateContractStatus(
+            contractId,
+            "cancelled",
+            { cancelReason: reason ?? "User requested cancellation" },
+            client
+        );
 
         await client.query("COMMIT");
         return updated!;
@@ -111,7 +161,7 @@ export const checkoutContract = async (
         if (contract.provider_id !== providerId) {
             throw forbidden("Only the provider can check out the item", "FORBIDDEN");
         }
-        if (contract.status !== "confirmed") {
+        if (contract.status !== "confirmed" && contract.status !== "created") {
             throw conflict("Contract must be confirmed before checkout", "CONTRACT_NOT_CONFIRMED");
         }
 
@@ -146,8 +196,8 @@ export const returnContract = async (
 
         const contract = await findContractById(contractId, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
-        if (contract.requester_id !== requesterId) {
-            throw forbidden("Only the requester can return the item", "FORBIDDEN");
+        if (contract.requester_id !== requesterId && contract.provider_id !== requesterId) {
+            throw forbidden("Only a contract participant can return the item", "FORBIDDEN");
         }
         if (contract.status !== "active") {
             throw conflict("Contract must be active before return", "CONTRACT_NOT_ACTIVE");
@@ -156,6 +206,20 @@ export const returnContract = async (
         const now = new Date();
         // 24 hour dispute deadline window
         const disputeDeadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+        // Release lend fee immediately to provider
+        const lendFee = Number(contract.rental_fee || contract.lend_fee || 0);
+        if (lendFee > 0) {
+            await releaseEscrow(
+                contractId,
+                contract.requester_id,
+                contract.provider_id,
+                lendFee,
+                "escrow_release_fee",
+                client,
+                `Lend fee released upon item return for contract ${contractId}`
+            );
+        }
 
         const updated = await updateContractStatus(
             contractId,
@@ -167,8 +231,9 @@ export const returnContract = async (
             client
         );
 
-        // Return custody to provider
-        await updateResourceHolder(contract.resource_id, contract.provider_id, client);
+        // Return custody to resource owner
+        const resource = await findResourceByIdModel(contract.resource_id, client);
+        await updateResourceHolder(contract.resource_id, resource?.owner_id ?? contract.provider_id, client);
 
         await client.query("COMMIT");
         return updated!;
@@ -178,4 +243,75 @@ export const returnContract = async (
     } finally {
         client.release();
     }
+};
+
+export const disputeCondition = async (
+    contractId: string,
+    userId: string,
+    reason: ReportReason = "damage",
+    description = "Condition disputed by provider"
+): Promise<Contract> => {
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+
+        const contract = await findContractById(contractId, client);
+        if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
+        if (contract.provider_id !== userId) {
+            throw forbidden("Only the provider can dispute the returned condition", "FORBIDDEN");
+        }
+        if (contract.status !== "returned" && contract.status !== "returned_pending_dispute") {
+            throw conflict("Contract must be returned to dispute condition", "INVALID_CONTRACT_STATUS");
+        }
+        if (contract.condition_disputed) {
+            throw conflict("Condition has already been disputed", "ALREADY_DISPUTED");
+        }
+        if (contract.dispute_deadline && new Date(contract.dispute_deadline).getTime() < Date.now()) {
+            throw conflict("Dispute window has expired", "DISPUTE_WINDOW_EXPIRED");
+        }
+
+        // Auto-create report
+        await insertReport(
+            {
+                contractId,
+                reporterId: userId,
+                reason: reason as any,
+                description,
+            },
+            client
+        );
+
+        const updated = await updateContractStatus(
+            contractId,
+            "disputed",
+            { conditionDisputed: true },
+            client
+        );
+
+        await client.query("COMMIT");
+        return updated!;
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+export const rateContract = async (
+    contractId: string,
+    userId: string,
+    score: number,
+    review?: string
+): Promise<{ success: boolean; score: number; review?: string }> => {
+    const contract = await findContractById(contractId);
+    if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
+    if (contract.requester_id !== userId && contract.provider_id !== userId) {
+        throw forbidden("Not authorized to rate this contract", "FORBIDDEN");
+    }
+    if (contract.status !== "completed") {
+        throw conflict("Can only rate completed contracts", "CONTRACT_NOT_COMPLETED");
+    }
+
+    return { success: true, score, review };
 };

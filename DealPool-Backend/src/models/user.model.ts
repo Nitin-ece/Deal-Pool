@@ -1,4 +1,5 @@
 import pool from "../config/db";
+import type { PoolClient } from "pg";
 import type { UserRole } from "../utils/types";
 
 export interface Profile {
@@ -51,8 +52,9 @@ export const insertProfile = async (params: {
     username: string;
     email: string | null;
     profilePhoto: string | null;
-}): Promise<Profile> => {
-    const result = await pool.query(
+}, client?: PoolClient): Promise<Profile> => {
+    const executor = client ?? pool;
+    const result = await executor.query(
         `
         INSERT INTO profiles (firebase_uid, username, email, profile_photo)
         VALUES ($1, $2, $3, $4)

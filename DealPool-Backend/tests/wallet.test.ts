@@ -45,10 +45,10 @@ try {
         uid = (await firebaseAuth.getUserByEmail(email)).uid;
     });
 
-    await test("GET /api/wallet initializes wallet with zero balance", async () => {
+    await test("GET /api/wallet initializes wallet with signup grant (1000 coins)", async () => {
         const res = await request(app).get("/api/wallet").set("Cookie", cookie);
         if (res.status !== 200) throw new Error(`Expected 200 got ${res.status} ${JSON.stringify(res.body)}`);
-        if (Number(res.body.data?.balance) !== 0) throw new Error(`Expected balance 0 got ${res.body.data?.balance}`);
+        if (Number(res.body.data?.balance) !== 1000) throw new Error(`Expected balance 1000 got ${res.body.data?.balance}`);
         if (Number(res.body.data?.locked_balance) !== 0) throw new Error(`Expected locked 0 got ${res.body.data?.locked_balance}`);
     });
 
@@ -61,7 +61,7 @@ try {
     await test("POST /api/wallet/deposit adds funds to balance", async () => {
         const res = await request(app).post("/api/wallet/deposit").set("Cookie", cookie).send({ amount: 500 });
         if (res.status !== 200) throw new Error(`Expected 200 got ${res.status} ${JSON.stringify(res.body)}`);
-        if (Number(res.body.data?.balance) !== 500) throw new Error(`Expected 500 got ${res.body.data?.balance}`);
+        if (Number(res.body.data?.balance) !== 1500) throw new Error(`Expected 1500 got ${res.body.data?.balance}`);
     });
 
     await test("GET /api/wallet/ledger records deposit entry", async () => {

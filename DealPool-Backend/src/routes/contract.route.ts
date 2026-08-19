@@ -6,6 +6,8 @@ import {
     cancelContractHandler,
     checkoutContractHandler,
     returnContractHandler,
+    disputeConditionHandler,
+    rateContractHandler,
 } from "../controllers/contract.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 
@@ -19,5 +21,7 @@ router.post("/:id/confirm", confirmContractHandler);
 router.post("/:id/cancel", cancelContractHandler);
 router.post("/:id/checkout", checkoutContractHandler);
 router.post("/:id/return", returnContractHandler);
+router.post("/:id/dispute-condition", disputeConditionHandler);
+router.post("/:id/rate", rateContractHandler);
 
 export default router;

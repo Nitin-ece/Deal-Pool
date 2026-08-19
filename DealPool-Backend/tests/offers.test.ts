@@ -17,14 +17,17 @@ let cookieB: string;
 let uidA: string | undefined;
 let uidB: string | undefined;
 
-let acceptDealId: string | undefined;
-let acceptOfferId: string | undefined;
+let acceptResourceId: string;
+let acceptDealId: string;
+let acceptOfferId: string;
 
-let rejectDealId: string | undefined;
-let rejectOfferId: string | undefined;
+let rejectResourceId: string;
+let rejectDealId: string;
+let rejectOfferId: string;
 
-let withdrawDealId: string | undefined;
-let withdrawOfferId: string | undefined;
+let withdrawResourceId: string;
+let withdrawDealId: string;
+let withdrawOfferId: string;
 
 const test = async (name: string, fn: () => Promise<void>): Promise<void> => {
   try {
@@ -63,21 +66,47 @@ try {
   });
 
   await test("A cannot offer on their own deal", async () => {
-    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({ title: "Self Offer Deal", lat: 37.1, lng: -122.0 });
+    const resRes = await request(app).post("/api/resources").set("Cookie", cookieA).send({
+      title: "Self Offer Item",
+      declaredValue: 200,
+      lat: 37.1,
+      lng: -122.0,
+    });
+    const resourceId = resRes.body.data?.id;
+
+    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({
+      title: "Self Offer Deal",
+      resourceId,
+      lat: 37.1,
+      lng: -122.0,
+    });
     if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
     const dealId = dealRes.body.data?.id;
 
-    const res = await request(app).post(`/api/deals/${dealId}/offers`).set("Cookie", cookieA).send({ price: 100, terms: "self offer" });
+    const res = await request(app).post(`/api/deals/${dealId}/offers`).set("Cookie", cookieA).send({ price: 10, terms: "self offer" });
     if (res.status !== 400) throw new Error(`Expected 400 got ${res.status} ${JSON.stringify(res.body)}`);
     if (res.body.error?.code !== "CANNOT_OFFER_OWN_DEAL") throw new Error(`Expected CANNOT_OFFER_OWN_DEAL got ${res.body.error?.code}`);
   });
 
   await test("setup deal + offer for accept flow", async () => {
-    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({ title: "Accept Flow Deal", lat: 37.2, lng: -122.1 });
+    const resRes = await request(app).post("/api/resources").set("Cookie", cookieA).send({
+      title: "Accept Flow Item",
+      declaredValue: 300,
+      lat: 37.2,
+      lng: -122.1,
+    });
+    acceptResourceId = resRes.body.data?.id;
+
+    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({
+      title: "Accept Flow Deal",
+      resourceId: acceptResourceId,
+      lat: 37.2,
+      lng: -122.1,
+    });
     if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
     acceptDealId = dealRes.body.data?.id;
 
-    const offerRes = await request(app).post(`/api/deals/${acceptDealId}/offers`).set("Cookie", cookieB).send({ price: 150, terms: "will accept" });
+    const offerRes = await request(app).post(`/api/deals/${acceptDealId}/offers`).set("Cookie", cookieB).send({ price: 25, terms: "will accept" });
     if (offerRes.status !== 201) throw new Error(`Expected 201 got ${offerRes.status} ${JSON.stringify(offerRes.body)}`);
     acceptOfferId = offerRes.body.data?.id;
   });
@@ -108,11 +137,24 @@ try {
   });
 
   await test("setup deal + offer for reject flow", async () => {
-    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({ title: "Reject Flow Deal", lat: 37.3, lng: -122.2 });
+    const resRes = await request(app).post("/api/resources").set("Cookie", cookieA).send({
+      title: "Reject Flow Item",
+      declaredValue: 200,
+      lat: 37.3,
+      lng: -122.2,
+    });
+    rejectResourceId = resRes.body.data?.id;
+
+    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({
+      title: "Reject Flow Deal",
+      resourceId: rejectResourceId,
+      lat: 37.3,
+      lng: -122.2,
+    });
     if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
     rejectDealId = dealRes.body.data?.id;
 
-    const offerRes = await request(app).post(`/api/deals/${rejectDealId}/offers`).set("Cookie", cookieB).send({ price: 90, terms: "will be rejected" });
+    const offerRes = await request(app).post(`/api/deals/${rejectDealId}/offers`).set("Cookie", cookieB).send({ price: 15, terms: "will be rejected" });
     if (offerRes.status !== 201) throw new Error(`Expected 201 got ${offerRes.status}`);
     rejectOfferId = offerRes.body.data?.id;
   });
@@ -124,11 +166,24 @@ try {
   });
 
   await test("setup deal + offer for withdraw flow", async () => {
-    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({ title: "Withdraw Flow Deal", lat: 37.4, lng: -122.3 });
+    const resRes = await request(app).post("/api/resources").set("Cookie", cookieA).send({
+      title: "Withdraw Flow Item",
+      declaredValue: 200,
+      lat: 37.4,
+      lng: -122.3,
+    });
+    withdrawResourceId = resRes.body.data?.id;
+
+    const dealRes = await request(app).post("/api/deals").set("Cookie", cookieA).send({
+      title: "Withdraw Flow Deal",
+      resourceId: withdrawResourceId,
+      lat: 37.4,
+      lng: -122.3,
+    });
     if (dealRes.status !== 201) throw new Error(`Expected 201 got ${dealRes.status}`);
     withdrawDealId = dealRes.body.data?.id;
 
-    const offerRes = await request(app).post(`/api/deals/${withdrawDealId}/offers`).set("Cookie", cookieB).send({ price: 80, terms: "will withdraw" });
+    const offerRes = await request(app).post(`/api/deals/${withdrawDealId}/offers`).set("Cookie", cookieB).send({ price: 12, terms: "will withdraw" });
     if (offerRes.status !== 201) throw new Error(`Expected 201 got ${offerRes.status}`);
     withdrawOfferId = offerRes.body.data?.id;
   });

@@ -1,12 +1,14 @@
 import pool from "../config/db";
 import type { PoolClient } from "pg";
 
-export type ReportReason = "damage" | "overcharge" | "other";
+export type ReportReason = "damage" | "damage_claim" | "overcharge" | "other";
 export type ReportStatus =
     | "pending"
     | "resolved_damage"
     | "resolved_dismissed"
-    | "resolved_overcharge";
+    | "resolved_overcharge"
+    | "upheld"
+    | "dismissed";
 
 export interface Report {
     id: string;
@@ -68,7 +70,7 @@ export const findReportByContractId = async (
 };
 
 export const listReports = async (
-    filter?: { reporterId?: string; status?: ReportStatus },
+    filter?: { reporterId?: string; status?: string; reason?: string },
     client?: PoolClient
 ): Promise<Report[]> => {
     const executor = client ?? pool;
@@ -82,6 +84,10 @@ export const listReports = async (
     if (filter?.status) {
         values.push(filter.status);
         clauses.push(`status = $${values.length}`);
+    }
+    if (filter?.reason) {
+        values.push(filter.reason);
+        clauses.push(`reason = $${values.length}`);
     }
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";

@@ -10,7 +10,8 @@ $Tests = @(
     "tests/transactions.test.ts",
     "tests/wallet.test.ts",
     "tests/contracts.test.ts",
-    "tests/reports.test.ts"
+    "tests/reports.test.ts",
+    "tests/e2e_full_suite.test.ts"
 )
 
 $Passed = @()

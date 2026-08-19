@@ -1,3 +1,8 @@
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
 import pool from "../src/config/db";
 import {
     findContractsPastDisputeDeadline,
@@ -22,7 +27,7 @@ export const settleContracts = async (): Promise<{ settledCount: number; skipped
             const contract = await findContractById(c.id, client);
             if (
                 !contract ||
-                contract.status !== "returned" ||
+                (contract.status !== "returned" && contract.status !== "returned_pending_dispute") ||
                 contract.condition_disputed === true ||
                 !contract.dispute_deadline ||
                 new Date(contract.dispute_deadline).getTime() >= Date.now()
@@ -33,21 +38,7 @@ export const settleContracts = async (): Promise<{ settledCount: number; skipped
                 continue;
             }
 
-            const rentalFee = Number(contract.rental_fee || 0);
-            const securityDeposit = Number(contract.security_deposit || 0);
-
-            // Release rental fee to provider
-            if (rentalFee > 0) {
-                await releaseEscrow(
-                    contract.id,
-                    contract.requester_id,
-                    contract.provider_id,
-                    rentalFee,
-                    "escrow_payout_fee",
-                    client,
-                    `Auto-settled rental fee payout for contract ${contract.id}`
-                );
-            }
+            const securityDeposit = Number(contract.security_deposit || contract.security_amount || 0);
 
             // Release security deposit to requester
             if (securityDeposit > 0) {

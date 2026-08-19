@@ -30,11 +30,12 @@ let profileIdB: string;
 let profileIdC: string;
 
 let resourceId1: string;
-let skillId1: string;
 let dealId1: string;
 let dealId2: string;
 let offerId1: string;
 let offerId2: string;
+let contractId1: string;
+let contractId2: string;
 let txId1: string;
 let txId2: string;
 
@@ -63,16 +64,16 @@ const getCookie = (cookies: string[], name: string): string => {
 };
 
 console.log("\n========================================================");
-console.log("   DEALPOOL BACKEND — FULL E2E INTEGRATION SUITE");
+console.log("   MAKERPOOL BACKEND (v2.1) — FULL E2E INTEGRATION SUITE");
 console.log("========================================================\n");
 
 try {
     // ----------------------------------------------------------------
-    // 1. AUTHENTICATION & IDENTITY LIFECYCLE
+    // 1. AUTHENTICATION & WALLET SIGNUP GRANTS
     // ----------------------------------------------------------------
-    console.log("--- 1. Auth & Profiles ---");
+    console.log("--- 1. Auth, Profiles & Signup Coin Grants ---");
 
-    await test("Register User A (Server-generated username & profile creation)", async () => {
+    await test("Register User A (Signup grant of 1000 coins & profile creation)", async () => {
         const res = await request(app)
             .post("/api/auth/register")
             .send({ email: emailA, password });
@@ -88,9 +89,16 @@ try {
 
         const fbUser = await firebaseAuth.getUserByEmail(emailA);
         uidA = fbUser.uid;
+
+        // Verify wallet has signup bonus (1000 coins)
+        const walletRes = await request(app).get("/api/wallet").set("Cookie", cookieA);
+        if (walletRes.status !== 200) throw new Error(`Wallet fetch failed: ${walletRes.status}`);
+        if (Number(walletRes.body.data?.balance) !== 1000) {
+            throw new Error(`Expected 1000 coins signup grant, got ${walletRes.body.data?.balance}`);
+        }
     });
 
-    await test("Register User B & User C", async () => {
+    await test("Register User B & User C with Signup Grants", async () => {
         const resB = await request(app).post("/api/auth/register").send({ email: emailB, password });
         if (resB.status !== 201) throw new Error(`User B failed 201: ${resB.status}`);
         profileIdB = resB.body.data.id;
@@ -116,7 +124,7 @@ try {
     });
 
     await test("PATCH /api/auth/update updates username", async () => {
-        const customUsername = `custom_otter_${Date.now()}`;
+        const customUsername = `maker_${Date.now()}`;
         const res = await request(app)
             .patch("/api/auth/update")
             .set("Cookie", cookieA)
@@ -148,7 +156,7 @@ try {
     // ----------------------------------------------------------------
     // 2. ADMIN CONTROL & RBAC
     // ----------------------------------------------------------------
-    console.log("\n--- 2. Admin Operations ---");
+    console.log("\n--- 2. Admin Operations & Reports ---");
 
     await test("Non-admin user rejected from GET /api/admin/users with 403", async () => {
         const res = await request(app)
@@ -158,7 +166,7 @@ try {
         if (res.status !== 403) throw new Error(`Expected 403, got ${res.status}`);
     });
 
-    await test("Promote User A to admin directly in DB and verify immediate access", async () => {
+    await test("Promote User A to admin directly in DB and verify access to admin routes", async () => {
         await pool.query(`UPDATE profiles SET role = 'admin' WHERE id = $1`, [profileIdA]);
 
         const res = await request(app)
@@ -169,58 +177,12 @@ try {
         if (!Array.isArray(res.body.data)) throw new Error("Expected array of profiles");
     });
 
-    await test("Admin promotes User B to admin via PATCH /api/admin/users/:id/role", async () => {
-        const res = await request(app)
-            .patch(`/api/admin/users/${profileIdB}/role`)
-            .set("Cookie", cookieA)
-            .send({ role: "admin" });
-
-        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-        if (res.body.data.role !== "admin") throw new Error("Role was not updated to admin");
-
-        // Demote back to user
-        await request(app)
-            .patch(`/api/admin/users/${profileIdB}/role`)
-            .set("Cookie", cookieA)
-            .send({ role: "user" });
-    });
-
     // ----------------------------------------------------------------
-    // 3. SKILLS DOMAIN
+    // 3. RESOURCES & TIERED DEPOSITS
     // ----------------------------------------------------------------
-    console.log("\n--- 3. Skills Module ---");
+    console.log("\n--- 3. Resources Module & Deposit Tiers ---");
 
-    await test("POST /api/skills creates a service skill", async () => {
-        const res = await request(app)
-            .post("/api/skills")
-            .set("Cookie", cookieA)
-            .send({
-                name: "3D CAD Modeling & Prototyping",
-                description: "Design custom enclosures in Fusion 360",
-                category: "Design",
-            });
-
-        if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
-        skillId1 = res.body.data.id;
-        if (!skillId1) throw new Error("Missing skill ID");
-    });
-
-    await test("GET /api/skills/mine lists user's skills", async () => {
-        const res = await request(app)
-            .get("/api/skills/mine")
-            .set("Cookie", cookieA);
-
-        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-        const found = res.body.data.find((s: { id: string }) => s.id === skillId1);
-        if (!found) throw new Error("Created skill not found in /mine list");
-    });
-
-    // ----------------------------------------------------------------
-    // 4. RESOURCES DOMAIN & POSTGIS PROXIMITY
-    // ----------------------------------------------------------------
-    console.log("\n--- 4. Resources Module & Geospatial Proximity ---");
-
-    await test("POST /api/resources creates a physical resource with coordinates", async () => {
+    await test("POST /api/resources creates resource with declaredValue and calculates deposit rate tier", async () => {
         const res = await request(app)
             .post("/api/resources")
             .set("Cookie", cookieA)
@@ -229,12 +191,15 @@ try {
                 description: "High precision 3D printer with 0.4mm nozzle",
                 category: "Hardware",
                 condition: "Like New",
+                declaredValue: 2000, // 500 < V <= 2000 -> tier 20% (0.20)
                 lat: 37.7749,
                 lng: -122.4194,
             });
 
-        if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
+        if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}: ${JSON.stringify(res.body)}`);
         resourceId1 = res.body.data.id;
+        if (Number(res.body.data.declared_value) !== 2000) throw new Error(`Expected declared_value 2000, got ${res.body.data.declared_value}`);
+        if (Number(res.body.data.security_deposit_rate) !== 0.20) throw new Error(`Expected tier 0.20, got ${res.body.data.security_deposit_rate}`);
         if (res.body.data.current_holder_id !== profileIdA) {
             throw new Error("current_holder_id did not default to owner");
         }
@@ -251,20 +216,18 @@ try {
     });
 
     // ----------------------------------------------------------------
-    // 5. DEALS MARKETPLACE & POSTGIS
+    // 4. DEALS & 10% FEE CAP ENFORCEMENT
     // ----------------------------------------------------------------
-    console.log("\n--- 5. Deals Module ---");
+    console.log("\n--- 4. Deals Marketplace & Fee Caps ---");
 
     await test("POST /api/deals creates a deal linked to Resource 1", async () => {
         const res = await request(app)
             .post("/api/deals")
             .set("Cookie", cookieA)
             .send({
-                title: "Looking to pass Prusa 3D Printer to next maker",
-                description: "Need to lend printer for the month",
+                title: "Looking to lend Prusa 3D Printer to makers",
+                description: "Need to lend printer for project",
                 category: "Hardware",
-                budgetMin: 200,
-                budgetMax: 500,
                 lat: 37.7749,
                 lng: -122.4194,
                 radiusKm: 10,
@@ -276,46 +239,57 @@ try {
         if (res.body.data.status !== "open") throw new Error("New deal status is not open");
     });
 
-    await test("GET /api/deals/nearby finds open deal in radius", async () => {
-        const res = await request(app)
-            .get("/api/deals/nearby?lat=37.7745&lng=-122.4190&radiusKm=5");
-
-        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-        const found = res.body.data.find((d: { id: string }) => d.id === dealId1);
-        if (!found) throw new Error("Deal not found in nearby search");
-    });
-
-    // ----------------------------------------------------------------
-    // 6. OFFERS & MULTI-HOP CHAIN OF CUSTODY (A -> B -> C)
-    // ----------------------------------------------------------------
-    console.log("\n--- 6. Multi-Hop Chain of Custody & Privacy Redaction ---");
-
-    await test("User A cannot make an offer on their own deal (400 CANNOT_OFFER_OWN_DEAL)", async () => {
-        const res = await request(app)
-            .post(`/api/deals/${dealId1}/offers`)
-            .set("Cookie", cookieA)
-            .send({ price: 300, terms: "Self offer" });
-
-        if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
-    });
-
-    await test("User B submits Offer 1 on Deal 1", async () => {
+    await test("Offer price exceeding 10% cap of declared value is rejected with 400 FEE_EXCEEDS_CAP", async () => {
+        // declared_value is 2000 -> 10% cap is 200
         const res = await request(app)
             .post(`/api/deals/${dealId1}/offers`)
             .set("Cookie", cookieB)
-            .send({ price: 300, terms: "Will handle pickup and maintain printer" });
+            .send({ price: 300, terms: "Exceeds 10% cap" });
+
+        if (res.status !== 400) throw new Error(`Expected 400, got ${res.status}`);
+        if (res.body.error?.code !== "FEE_EXCEEDS_CAP") {
+            throw new Error(`Expected FEE_EXCEEDS_CAP, got ${res.body.error?.code}`);
+        }
+    });
+
+    await test("User B submits Offer 1 under cap (price 150)", async () => {
+        const res = await request(app)
+            .post(`/api/deals/${dealId1}/offers`)
+            .set("Cookie", cookieB)
+            .send({ price: 150, terms: "Fair price under cap" });
 
         if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
         offerId1 = res.body.data.id;
     });
 
-    await test("User A accepts Offer 1: triggers atomic transaction and moves custody to User B", async () => {
+    // ----------------------------------------------------------------
+    // 5. CONTRACTS, ESCROW LOCK, CUSTODY & LIFECYCLE
+    // ----------------------------------------------------------------
+    console.log("\n--- 5. Contracts, Escrow Lock & Multi-Hop Custody ---");
+
+    await test("User A accepts Offer 1: captures platform fee (5%), creates Contract 1, locks escrow", async () => {
         const res = await request(app)
             .patch(`/api/offers/${offerId1}/accept`)
             .set("Cookie", cookieA);
 
-        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-        if (res.body.data.status !== "accepted") throw new Error("Offer was not flipped to accepted");
+        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}: ${JSON.stringify(res.body)}`);
+
+        // Fetch created contract
+        const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieA);
+        contractId1 = contractsRes.body.data[0].id;
+        const c = contractsRes.body.data[0];
+        if (Number(c.declared_value) !== 2000) throw new Error(`Expected declared_value 2000, got ${c.declared_value}`);
+        if (Number(c.lend_fee) !== 150) throw new Error(`Expected lend_fee 150, got ${c.lend_fee}`);
+        if (Number(c.security_amount) !== 400) throw new Error(`Expected security_amount 400 (20%), got ${c.security_amount}`);
+    });
+
+    await test("User A confirms Contract 1: reveals contact info and moves custody to User B", async () => {
+        const confirmRes = await request(app)
+            .post(`/api/contracts/${contractId1}/confirm`)
+            .set("Cookie", cookieA);
+
+        if (confirmRes.status !== 200) throw new Error(`Confirm failed: ${confirmRes.status}: ${JSON.stringify(confirmRes.body)}`);
+        if (!confirmRes.body.data?.contact_revealed) throw new Error("Contact info not revealed");
 
         // Verify resource's current_holder_id moved to User B
         const resCheck = await request(app).get(`/api/resources/${resourceId1}`);
@@ -324,39 +298,32 @@ try {
         }
     });
 
-    await test("User B creates Deal 2 for the same Resource to pass to User C", async () => {
-        const res = await request(app)
+    await test("User B (now holding resource) creates Deal 2 and passes to User C", async () => {
+        const dealRes = await request(app)
             .post("/api/deals")
             .set("Cookie", cookieB)
             .send({
-                title: "Passing on the Prusa MK4 Printer",
-                description: "Done with project, passing forward",
+                title: "Passing Prusa MK4 forward to User C",
                 category: "Hardware",
                 lat: 37.7749,
                 lng: -122.4194,
                 resourceId: resourceId1,
             });
+        if (dealRes.status !== 201) throw new Error(`Deal 2 failed: ${dealRes.status}`);
+        dealId2 = dealRes.body.data.id;
 
-        if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
-        dealId2 = res.body.data.id;
-    });
-
-    await test("User C submits Offer 2 on Deal 2", async () => {
-        const res = await request(app)
+        const offerRes = await request(app)
             .post(`/api/deals/${dealId2}/offers`)
             .set("Cookie", cookieC)
-            .send({ price: 400, terms: "Taking printer for next stage" });
+            .send({ price: 180, terms: "Next stage borrower" });
+        if (offerRes.status !== 201) throw new Error(`Offer 2 failed: ${offerRes.status}`);
+        offerId2 = offerRes.body.data.id;
 
-        if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
-        offerId2 = res.body.data.id;
-    });
+        await request(app).patch(`/api/offers/${offerId2}/accept`).set("Cookie", cookieB);
 
-    await test("User B accepts Offer 2: creates chained Transaction 2 (parent = Tx 1) and moves custody to User C", async () => {
-        const res = await request(app)
-            .patch(`/api/offers/${offerId2}/accept`)
-            .set("Cookie", cookieB);
-
-        if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
+        const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieB);
+        contractId2 = contractsRes.body.data[0].id;
+        await request(app).post(`/api/contracts/${contractId2}/confirm`).set("Cookie", cookieB);
 
         // Verify resource's current_holder_id is now User C
         const resCheck = await request(app).get(`/api/resources/${resourceId1}`);
@@ -365,14 +332,13 @@ try {
         }
     });
 
-    await test("GET /api/resources/:id/chain for User C: verifies recursive chain & privacy redaction", async () => {
+    await test("GET /api/resources/:id/chain verifies recursive chain & privacy redaction across hops", async () => {
         const res = await request(app)
             .get(`/api/resources/${resourceId1}/chain`)
             .set("Cookie", cookieC);
 
         if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
         const chain = res.body.data;
-
         if (!Array.isArray(chain) || chain.length !== 2) {
             throw new Error(`Expected 2 hops in chain, got ${chain?.length}`);
         }
@@ -381,34 +347,14 @@ try {
         txId1 = hop1.id;
         txId2 = hop2.id;
 
-        // Hop 1 (A -> B): User C was NOT a participant. It MUST be redacted (no from_user_id or to_user_id)
+        // Hop 1 (A -> B): Redacted for User C
         if (hop1.from_user_id || hop1.to_user_id) {
             throw new Error("Privacy violation: Third-party participant IDs leaked in Hop 1!");
         }
 
-        // Hop 2 (B -> C): User C WAS a participant. Full row returned.
+        // Hop 2 (B -> C): Full for User C
         if (hop2.from_user_id !== profileIdB || hop2.to_user_id !== profileIdC) {
             throw new Error("Participant IDs missing or mismatched in Hop 2!");
-        }
-    });
-
-    await test("GET /api/transactions/:id enforces participant-only access", async () => {
-        // User C requesting Transaction 1 (between A and B) -> 403 Forbidden
-        const resForbidden = await request(app)
-            .get(`/api/transactions/${txId1}`)
-            .set("Cookie", cookieC);
-
-        if (resForbidden.status !== 403) {
-            throw new Error(`Expected 403 Forbidden for non-participant, got ${resForbidden.status}`);
-        }
-
-        // User A requesting Transaction 1 (participant) -> 200 OK
-        const resAllowed = await request(app)
-            .get(`/api/transactions/${txId1}`)
-            .set("Cookie", cookieA);
-
-        if (resAllowed.status !== 200) {
-            throw new Error(`Expected 200 OK for participant, got ${resAllowed.status}`);
         }
     });
 

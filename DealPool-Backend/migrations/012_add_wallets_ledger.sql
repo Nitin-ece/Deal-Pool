@@ -1,4 +1,5 @@
--- Wallets and double-entry ledger
+-- 012_add_wallets_ledger.sql
+-- Wallets, double-entry ledger entries, and debts
 
 CREATE TABLE IF NOT EXISTS public.wallets (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -18,28 +19,48 @@ CREATE INDEX IF NOT EXISTS wallets_user_id_idx ON public.wallets (user_id);
 CREATE TABLE IF NOT EXISTS public.ledger_entries (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     contract_id uuid NULL,
-    user_id uuid NOT NULL,
+    user_id uuid NULL,
+    from_wallet_id uuid NULL,
+    to_wallet_id uuid NULL,
     amount numeric(12, 2) NOT NULL,
     entry_type text NOT NULL,
     description text NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT ledger_entries_pkey PRIMARY KEY (id),
-    CONSTRAINT ledger_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles (id) ON DELETE CASCADE,
-    CONSTRAINT ledger_entries_type_check CHECK (
-        entry_type = ANY (ARRAY[
-            'deposit'::text,
-            'withdrawal'::text,
-            'escrow_lock_fee'::text,
-            'escrow_lock_security'::text,
-            'escrow_payout_fee'::text,
-            'escrow_release_security'::text,
-            'escrow_penalty'::text
-        ])
-    )
+    CONSTRAINT ledger_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles (id) ON DELETE CASCADE
+);
+
+-- Ensure columns exist if table was already created
+ALTER TABLE public.ledger_entries
+    ADD COLUMN IF NOT EXISTS contract_id uuid NULL,
+    ADD COLUMN IF NOT EXISTS user_id uuid NULL,
+    ADD COLUMN IF NOT EXISTS from_wallet_id uuid NULL,
+    ADD COLUMN IF NOT EXISTS to_wallet_id uuid NULL,
+    ADD COLUMN IF NOT EXISTS amount numeric(12, 2) NOT NULL DEFAULT 0.00,
+    ADD COLUMN IF NOT EXISTS entry_type text NOT NULL DEFAULT 'deposit',
+    ADD COLUMN IF NOT EXISTS description text NULL;
+
+ALTER TABLE public.ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_type_check;
+ALTER TABLE public.ledger_entries ADD CONSTRAINT ledger_entries_type_check CHECK (
+    entry_type = ANY (ARRAY[
+        'deposit'::text,
+        'withdrawal'::text,
+        'fee_capture'::text,
+        'escrow_lock'::text,
+        'escrow_lock_fee'::text,
+        'escrow_lock_security'::text,
+        'escrow_release_fee'::text,
+        'escrow_payout_fee'::text,
+        'escrow_release_security'::text,
+        'escrow_penalty'::text,
+        'damage_debt'::text
+    ])
 );
 
 CREATE INDEX IF NOT EXISTS ledger_entries_user_id_idx ON public.ledger_entries (user_id);
 CREATE INDEX IF NOT EXISTS ledger_entries_contract_id_idx ON public.ledger_entries (contract_id);
+CREATE INDEX IF NOT EXISTS ledger_entries_from_wallet_idx ON public.ledger_entries (from_wallet_id);
+CREATE INDEX IF NOT EXISTS ledger_entries_to_wallet_idx ON public.ledger_entries (to_wallet_id);
 
 CREATE TABLE IF NOT EXISTS public.debts (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -62,3 +83,8 @@ CREATE TABLE IF NOT EXISTS public.debts (
 
 CREATE INDEX IF NOT EXISTS debts_user_id_idx ON public.debts (user_id);
 CREATE INDEX IF NOT EXISTS debts_contract_id_idx ON public.debts (contract_id);
+
+-- Enable RLS
+ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ledger_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;

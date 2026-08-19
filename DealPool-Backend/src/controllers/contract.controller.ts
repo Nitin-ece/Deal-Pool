@@ -6,6 +6,8 @@ import {
     cancelContract,
     checkoutContract,
     returnContract,
+    disputeCondition,
+    rateContract,
 } from "../services/contract.service";
 import type { ApiResponse } from "../utils/responseApi";
 
@@ -66,7 +68,11 @@ export const cancelContractHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const contract = await cancelContract(req.params.id as string, req.user!.uid);
+        const contract = await cancelContract(
+            req.params.id as string,
+            req.user!.uid,
+            req.body?.reason
+        );
         const response: ApiResponse<typeof contract> = {
             success: true,
             data: contract,
@@ -104,6 +110,50 @@ export const returnContractHandler = async (
         const response: ApiResponse<typeof contract> = {
             success: true,
             data: contract,
+        };
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const disputeConditionHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const contract = await disputeCondition(
+            req.params.id as string,
+            req.user!.uid,
+            req.body?.reason,
+            req.body?.description
+        );
+        const response: ApiResponse<typeof contract> = {
+            success: true,
+            data: contract,
+        };
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const rateContractHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const result = await rateContract(
+            req.params.id as string,
+            req.user!.uid,
+            req.body?.score,
+            req.body?.review
+        );
+        const response: ApiResponse<typeof result> = {
+            success: true,
+            data: result,
         };
         res.status(200).json(response);
     } catch (error) {

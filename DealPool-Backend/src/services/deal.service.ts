@@ -8,7 +8,6 @@ import {
     Deal,
 } from "../models/deal.model";
 import { badRequest, notFound, forbidden } from "../utils/errors";
-
 import { checkUserHasDebt } from "./wallet.service";
 
 interface CreateDealInput {
@@ -21,7 +20,6 @@ interface CreateDealInput {
     lng: number;
     radiusKm?: number;
     resourceId?: string;
-    skillId?: string;
 }
 
 export const createDeal = async (
@@ -48,7 +46,6 @@ export const createDeal = async (
         lng: input.lng,
         radiusKm: input.radiusKm ?? 10,
         resourceId: input.resourceId ?? null,
-        skillId: input.skillId ?? null,
     });
 };
 
