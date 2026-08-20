@@ -93,7 +93,7 @@ export const sumEscrowForContract = async (
         `
         SELECT
             COALESCE(SUM(CASE WHEN entry_type IN ('escrow_lock', 'escrow_lock_fee', 'escrow_lock_security') THEN amount ELSE 0 END), 0) AS locked_total,
-            COALESCE(SUM(CASE WHEN entry_type IN ('escrow_release_fee', 'escrow_payout_fee', 'escrow_release_security', 'escrow_penalty') THEN amount ELSE 0 END), 0) AS released_total
+            COALESCE(SUM(CASE WHEN entry_type IN ('escrow_release_fee', 'escrow_payout_fee', 'escrow_release_security', 'escrow_penalty', 'fee_capture') THEN amount ELSE 0 END), 0) AS released_total
         FROM ledger_entries
         WHERE contract_id = $1
         `,

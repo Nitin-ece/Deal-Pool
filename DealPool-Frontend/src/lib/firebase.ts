@@ -31,12 +31,24 @@ function getFirebaseAuth(): Auth {
   return auth!;
 }
 
-/** Popup Google sign-in; returns Firebase ID token for POST /api/auth/google. */
-export async function getGoogleIdToken(): Promise<string> {
+/** Popup Google sign-in; returns tokens for POST /api/auth/google. */
+export async function getGoogleAuthTokens(): Promise<{
+  idToken: string;
+  refreshToken?: string;
+}> {
   const firebaseAuth = getFirebaseAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   const result = await signInWithPopup(firebaseAuth, provider);
-  const idToken = await result.user.getIdToken();
+  const idToken = await result.user.getIdToken(/* forceRefresh */ true);
+  return {
+    idToken,
+    refreshToken: result.user.refreshToken || undefined,
+  };
+}
+
+/** @deprecated Prefer getGoogleAuthTokens */
+export async function getGoogleIdToken(): Promise<string> {
+  const { idToken } = await getGoogleAuthTokens();
   return idToken;
 }

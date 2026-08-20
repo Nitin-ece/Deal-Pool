@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Compass, FolderHeart, PlusCircle, Settings, Shield } from "lucide-react";
+import { Compass, FileText, FolderHeart, PlusCircle, Settings, Shield } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { cn } from "../../lib/cn";
 
@@ -9,6 +9,7 @@ export function BottomNav() {
 
   const items = [
     { name: "Radar", path: "/deals", icon: Compass },
+    { name: "Contracts", path: "/contracts", icon: FileText },
     { name: "Post", path: "/deals/new", icon: PlusCircle },
     { name: "Mine", path: "/my-deals", icon: FolderHeart },
     { name: "Settings", path: "/settings", icon: Settings },

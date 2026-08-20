@@ -6,7 +6,7 @@ import { AlertCircle, Compass, LogIn, UserPlus } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { BrandMark } from "../components/common/BrandMark";
 import { getErrorMessage } from "../lib/errors";
-import { getGoogleIdToken, isFirebaseConfigured } from "../lib/firebase";
+import { getGoogleAuthTokens, isFirebaseConfigured } from "../lib/firebase";
 import { cn } from "../lib/cn";
 
 interface AuthProps {
@@ -39,7 +39,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
     setMode(location.pathname.includes("register") ? "register" : initialMode);
   }, [location.pathname, initialMode]);
 
-  const displayError = localError || (typeof error === "string" ? error : null);
+  const displayError = localError || (typeof error === "string" && error.trim() ? error : null);
 
   const authErrorMessage = (err: unknown): string => {
     const code =
@@ -57,6 +57,12 @@ export function Auth({ initialMode = "login" }: AuthProps) {
     }
     if (code === "INTERNAL_SERVER_ERROR") {
       return "Server error during sign-in. Please try again.";
+    }
+    if (code === "auth/popup-blocked") {
+      return "Popup was blocked by your browser. Please allow popups for this site and try again.";
+    }
+    if (code === "auth/unauthorized-domain") {
+      return "Domain is not authorized in Firebase. Please add this domain to Firebase Console -> Authentication -> Settings -> Authorized Domains.";
     }
     return getErrorMessage(err, "Authentication failed. Check your credentials.");
   };
@@ -112,11 +118,21 @@ export function Auth({ initialMode = "login" }: AuthProps) {
     }
     setGoogleLoading(true);
     try {
-      const idToken = await getGoogleIdToken();
-      await googleAuth(idToken).unwrap();
+      const tokens = await getGoogleAuthTokens();
+      await googleAuth(tokens).unwrap();
       toast.success("Signed in with Google");
       navigate("/deals");
     } catch (err: unknown) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code?: string }).code || "")
+          : "";
+      if (
+        code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request"
+      ) {
+        return;
+      }
       setLocalError(authErrorMessage(err));
     } finally {
       setGoogleLoading(false);

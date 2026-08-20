@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ChevronDown,
+  Coins,
   Crosshair,
   MapPin,
   Plus,
@@ -17,6 +18,8 @@ import { useAppDispatch, useAppSelector } from "../../redux/store";
 import { setSearchQuery, setRadiusKm } from "../../redux/slices/dealsSlice";
 import { BrandMark } from "../common/BrandMark";
 import { cn } from "../../lib/cn";
+import api from "../../services/api";
+import type { WalletSummary } from "../../types/contracts";
 
 export function Header() {
   const navigate = useNavigate();
@@ -29,7 +32,19 @@ export function Header() {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showRadiusDropdown, setShowRadiusDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setWallet(null);
+      return;
+    }
+    api
+      .get<any, WalletSummary>("/api/wallet")
+      .then((data) => setWallet(data))
+      .catch(() => setWallet(null));
+  }, [user]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -163,6 +178,19 @@ export function Header() {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          {user && wallet && (
+            <Link
+              to="/contracts"
+              className="hidden items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-white sm:inline-flex"
+              title="Wallet balance"
+            >
+              <Coins className="h-3.5 w-3.5 text-[var(--signal)]" />
+              <span>{Math.round(wallet.balance)}</span>
+              {wallet.locked_balance > 0 && (
+                <span className="text-[var(--muted)]">· {Math.round(wallet.locked_balance)} locked</span>
+              )}
+            </Link>
+          )}
           <Link
             to="/deals/new"
             id="header-post-deal-btn"
@@ -209,6 +237,13 @@ export function Header() {
                       </span>
                     )}
                   </div>
+                  <Link
+                    to="/contracts"
+                    onClick={closeMenus}
+                    className="block px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]"
+                  >
+                    Contracts & escrow
+                  </Link>
                   <Link
                     to="/my-deals"
                     onClick={closeMenus}

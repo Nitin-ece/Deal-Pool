@@ -10,6 +10,19 @@ interface AuthState {
   error: string | null;
 }
 
+export type AuthReject = { code?: string; message: string };
+
+const toAuthReject = (err: unknown, fallback: string): AuthReject => {
+  if (err && typeof err === "object") {
+    const record = err as { code?: string; message?: string };
+    return {
+      code: record.code,
+      message: getErrorMessage(err, fallback),
+    };
+  }
+  return { message: getErrorMessage(err, fallback) };
+};
+
 const initialState: AuthState = {
   user: null,
   status: "idle",
@@ -22,7 +35,7 @@ export const fetchMe = createAsyncThunk("auth/fetchMe", async (_, { rejectWithVa
     const data = await api.get<any, UserProfile>("/api/auth/me");
     return data;
   } catch (err: unknown) {
-    return rejectWithValue(getErrorMessage(err, "Failed to authenticate session"));
+    return rejectWithValue(toAuthReject(err, "Failed to authenticate session"));
   }
 });
 
@@ -30,10 +43,13 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const data = await api.post<any, UserProfile>("/api/auth/login", credentials);
+      const data = await api.post<any, UserProfile>("/api/auth/login", {
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+      });
       return data;
     } catch (err: unknown) {
-      return rejectWithValue(getErrorMessage(err, "Invalid email or password"));
+      return rejectWithValue(toAuthReject(err, "Invalid email or password"));
     }
   }
 );
@@ -42,22 +58,32 @@ export const registerUser = createAsyncThunk(
   "auth/registerUser",
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
-      const data = await api.post<any, UserProfile>("/api/auth/register", credentials);
+      const data = await api.post<any, UserProfile>("/api/auth/register", {
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+      });
       return data;
     } catch (err: unknown) {
-      return rejectWithValue(getErrorMessage(err, "Registration failed"));
+      return rejectWithValue(toAuthReject(err, "Registration failed"));
     }
   }
 );
 
 export const loginWithGoogle = createAsyncThunk(
   "auth/loginWithGoogle",
-  async (idToken: string, { rejectWithValue }) => {
+  async (
+    payload: string | { idToken: string; refreshToken?: string },
+    { rejectWithValue }
+  ) => {
     try {
-      const data = await api.post<any, UserProfile>("/api/auth/google", { idToken });
+      const body =
+        typeof payload === "string"
+          ? { idToken: payload }
+          : { idToken: payload.idToken, refreshToken: payload.refreshToken };
+      const data = await api.post<any, UserProfile>("/api/auth/google", body);
       return data;
     } catch (err: unknown) {
-      return rejectWithValue(getErrorMessage(err, "Google sign-in failed"));
+      return rejectWithValue(toAuthReject(err, "Google sign-in failed"));
     }
   }
 );
@@ -141,7 +167,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload as string;
+        const payload = action.payload as AuthReject | string | undefined;
+        state.error = typeof payload === "string" ? payload : payload?.message || "Invalid email or password";
       });
 
     // register
@@ -157,7 +184,8 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload as string;
+        const payload = action.payload as AuthReject | string | undefined;
+        state.error = typeof payload === "string" ? payload : payload?.message || "Registration failed";
       });
 
     // google
@@ -173,7 +201,8 @@ const authSlice = createSlice({
       })
       .addCase(loginWithGoogle.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload as string;
+        const payload = action.payload as AuthReject | string | undefined;
+        state.error = typeof payload === "string" ? payload : payload?.message || "Google sign-in failed";
       });
 
     // logout
@@ -189,7 +218,8 @@ const authSlice = createSlice({
         state.user = action.payload;
       })
       .addCase(updateProfile.rejected, (state, action) => {
-        state.error = action.payload as string;
+        const payload = action.payload as AuthReject | string | undefined;
+        state.error = typeof payload === "string" ? payload : payload?.message || "Failed to update profile";
       });
   },
 });

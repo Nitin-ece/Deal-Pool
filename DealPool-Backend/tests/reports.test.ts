@@ -105,12 +105,26 @@ try {
         const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieRequester);
         contractId = contractsRes.body.data[0].id;
 
-        // Confirm
         await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieRequester);
+        await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieProvider);
 
-        // Checkout and return
-        await request(app).post(`/api/contracts/${contractId}/checkout`).set("Cookie", cookieProvider);
-        await request(app).post(`/api/contracts/${contractId}/return`).set("Cookie", cookieRequester);
+        const checkoutTokenRes = await request(app)
+            .get(`/api/contracts/${contractId}/handoff-token?purpose=checkout`)
+            .set("Cookie", cookieProvider);
+        const checkoutToken = checkoutTokenRes.body.data?.token;
+        await request(app)
+            .post(`/api/contracts/${contractId}/checkout`)
+            .set("Cookie", cookieProvider)
+            .send({ token: checkoutToken });
+
+        const returnTokenRes = await request(app)
+            .get(`/api/contracts/${contractId}/handoff-token?purpose=return`)
+            .set("Cookie", cookieRequester);
+        const returnToken = returnTokenRes.body.data?.token;
+        await request(app)
+            .post(`/api/contracts/${contractId}/return`)
+            .set("Cookie", cookieRequester)
+            .send({ token: returnToken });
     });
 
     await test("POST /api/reports creates a dispute and marks contract condition_disputed", async () => {
@@ -134,6 +148,63 @@ try {
         if (adminReportsRes.status !== 200) throw new Error(`Expected 200 got ${adminReportsRes.status}`);
         if (!Array.isArray(adminReportsRes.body.data) || adminReportsRes.body.data.length === 0) {
             throw new Error("Expected at least one report in admin listing");
+        }
+    });
+
+    await test("POST /api/reports rejects dispute on non-returned contract", async () => {
+        const resRes = await request(app).post("/api/resources").set("Cookie", cookieRequester).send({
+            title: "Early dispute projector",
+            declaredValue: 100,
+            lat: 12.97,
+            lng: 77.59,
+        });
+        const earlyResourceId = resRes.body.data?.id;
+
+        const earlyDealRes = await request(app).post("/api/deals").set("Cookie", cookieRequester).send({
+            title: "Early dispute deal",
+            resourceId: earlyResourceId,
+            lat: 12.97,
+            lng: 77.59,
+        });
+        const earlyDealId = earlyDealRes.body.data?.id;
+
+        const offerRes = await request(app).post(`/api/deals/${earlyDealId}/offers`).set("Cookie", cookieProvider).send({
+            price: 8,
+            terms: "Early dispute test",
+        });
+        if (offerRes.status !== 201) {
+            throw new Error(`Offer failed: ${offerRes.status} ${JSON.stringify(offerRes.body)}`);
+        }
+        await request(app).patch(`/api/offers/${offerRes.body.data?.id}/accept`).set("Cookie", cookieRequester);
+
+        const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieRequester);
+        const openContractId = contractsRes.body.data.find((c: any) => c.status === "created" || c.status === "pending_confirmation")?.id;
+        if (!openContractId) throw new Error("Expected an open contract for early dispute test");
+
+        const res = await request(app).post("/api/reports").set("Cookie", cookieProvider).send({
+            contractId: openContractId,
+            reason: "damage",
+            description: "Too early",
+        });
+        if (res.status !== 409 && res.status !== 400) {
+            throw new Error(`Expected 409/400 got ${res.status} ${JSON.stringify(res.body)}`);
+        }
+        if (res.body.error?.code !== "INVALID_CONTRACT_STATUS") {
+            throw new Error(`Expected INVALID_CONTRACT_STATUS got ${res.body.error?.code}`);
+        }
+    });
+
+    await test("POST /api/reports/:id/resolve rejects negative damageAward", async () => {
+        const res = await request(app)
+            .post(`/api/reports/${reportId}/resolve`)
+            .set("Cookie", cookieAdmin)
+            .send({
+                outcome: "damage",
+                damageAward: -50,
+            });
+        if (res.status !== 400) throw new Error(`Expected 400 got ${res.status}`);
+        if (res.body.error?.code !== "INVALID_DAMAGE_AWARD") {
+            throw new Error(`Expected INVALID_DAMAGE_AWARD got ${res.body.error?.code}`);
         }
     });
 

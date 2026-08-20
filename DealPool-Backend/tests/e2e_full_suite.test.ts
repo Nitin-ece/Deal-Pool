@@ -283,10 +283,11 @@ try {
         if (Number(c.security_amount) !== 400) throw new Error(`Expected security_amount 400 (20%), got ${c.security_amount}`);
     });
 
-    await test("User A confirms Contract 1: reveals contact info and moves custody to User B", async () => {
+    await test("User A confirms Contract 1: both parties confirm, reveals contact, moves custody to User B", async () => {
+        await request(app).post(`/api/contracts/${contractId1}/confirm`).set("Cookie", cookieA);
         const confirmRes = await request(app)
             .post(`/api/contracts/${contractId1}/confirm`)
-            .set("Cookie", cookieA);
+            .set("Cookie", cookieB);
 
         if (confirmRes.status !== 200) throw new Error(`Confirm failed: ${confirmRes.status}: ${JSON.stringify(confirmRes.body)}`);
         if (!confirmRes.body.data?.contact_revealed) throw new Error("Contact info not revealed");
@@ -324,6 +325,7 @@ try {
         const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieB);
         contractId2 = contractsRes.body.data[0].id;
         await request(app).post(`/api/contracts/${contractId2}/confirm`).set("Cookie", cookieB);
+        await request(app).post(`/api/contracts/${contractId2}/confirm`).set("Cookie", cookieC);
 
         // Verify resource's current_holder_id is now User C
         const resCheck = await request(app).get(`/api/resources/${resourceId1}`);

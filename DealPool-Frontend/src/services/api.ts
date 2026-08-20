@@ -45,6 +45,7 @@ api.interceptors.response.use(
     const isAuthEndpoint =
       originalRequest?.url?.includes("/api/auth/login") ||
       originalRequest?.url?.includes("/api/auth/register") ||
+      originalRequest?.url?.includes("/api/auth/google") ||
       originalRequest?.url?.includes("/api/auth/refresh");
 
     if (

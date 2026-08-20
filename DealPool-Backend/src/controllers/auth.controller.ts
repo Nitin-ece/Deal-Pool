@@ -10,9 +10,12 @@ import {
 } from "../services/auth.service";
 import type { ApiResponse } from "../utils/responseApi";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const accessTokenCookieOptions = {
     httpOnly: true,
     sameSite: "lax" as const,
+    secure: isProduction,
     maxAge: 60 * 60 * 1000,
     path: "/",
 };
@@ -20,7 +23,15 @@ const accessTokenCookieOptions = {
 const refreshTokenCookieOptions = {
     httpOnly: true,
     sameSite: "lax" as const,
+    secure: isProduction,
     maxAge: 60 * 24 * 60 * 60 * 1000,
+    path: "/",
+};
+
+const clearCookieOptions = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: isProduction,
     path: "/",
 };
 
@@ -116,17 +127,9 @@ export const me = async (
 };
 
 export const logout = (_req: Request, res: Response): void => {
-    res.clearCookie("accessToken", {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-    });
+    res.clearCookie("accessToken", clearCookieOptions);
 
-    res.clearCookie("refreshToken", {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-    });
+    res.clearCookie("refreshToken", clearCookieOptions);
 
     const response: ApiResponse<null> = {
         success: true,
@@ -142,9 +145,9 @@ export const googleLogin = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const { idToken } = req.body;
+        const { idToken, refreshToken } = req.body;
 
-        if (!idToken) {
+        if (!idToken || typeof idToken !== "string") {
             res.status(401).json({
                 success: false,
                 error: {
@@ -155,13 +158,19 @@ export const googleLogin = async (
             return;
         }
 
-        const { profile, token } = await googleLoginUser(idToken);
+        const result = await googleLoginUser(
+            idToken,
+            typeof refreshToken === "string" ? refreshToken : undefined
+        );
 
-        res.cookie("accessToken", token, accessTokenCookieOptions);
+        res.cookie("accessToken", result.token, accessTokenCookieOptions);
+        if (result.refreshToken) {
+            res.cookie("refreshToken", result.refreshToken, refreshTokenCookieOptions);
+        }
 
-        const response: ApiResponse<typeof profile> = {
+        const response: ApiResponse<typeof result.profile> = {
             success: true,
-            data: profile,
+            data: result.profile,
         };
 
         res.status(200).json(response);

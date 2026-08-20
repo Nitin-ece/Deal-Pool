@@ -104,6 +104,7 @@ try {
     const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieA);
     const contractId = contractsRes.body.data[0].id;
     await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieA);
+    await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieB);
   });
 
   await test("resource current_holder_id moved to B after hop 1", async () => {
@@ -134,6 +135,7 @@ try {
     const contractsRes = await request(app).get("/api/contracts").set("Cookie", cookieB);
     const contractId = contractsRes.body.data[0].id;
     await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieB);
+    await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieC);
   });
 
   await test("C (current participant) sees full chain with hop 2 identities and hop 1 redacted", async () => {

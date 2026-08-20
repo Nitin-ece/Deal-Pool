@@ -31,7 +31,7 @@ export const findProfileByEmail = async (
     email: string
 ): Promise<Profile | null> => {
     const result = await pool.query(
-        `SELECT * FROM profiles WHERE email = $1`,
+        `SELECT * FROM profiles WHERE lower(email) = lower($1)`,
         [email]
     );
     return result.rows[0] ?? null;

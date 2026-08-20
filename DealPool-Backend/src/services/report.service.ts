@@ -9,6 +9,7 @@ import {
     ReportStatus,
 } from "../models/report.model";
 import { findContractById, updateContractStatus } from "../models/contract.model";
+import { validateDisputeFiling } from "./contract.service";
 import { releaseEscrow } from "./ledger.service";
 import { recordDebt } from "./wallet.service";
 import { applyStrike } from "./reputation.service";
@@ -30,9 +31,8 @@ export const fileReport = async (
 
         const contract = await findContractById(contractId, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
-        if (contract.requester_id !== reporterId && contract.provider_id !== reporterId) {
-            throw forbidden("Not a participant in this contract", "FORBIDDEN");
-        }
+
+        validateDisputeFiling(contract, reporterId);
 
         const report = await insertReport(
             {
@@ -107,6 +107,11 @@ export const resolveDispute = async (
 ): Promise<Report> => {
     const decision = input.decision || input.outcome;
     const notes = input.notes || input.note;
+
+    if (input.damageAward !== undefined && Number(input.damageAward) < 0) {
+        throw badRequest("damageAward must be non-negative", "INVALID_DAMAGE_AWARD");
+    }
+
     const damageAward = input.damageAward ?? 0;
 
     if (!decision) {

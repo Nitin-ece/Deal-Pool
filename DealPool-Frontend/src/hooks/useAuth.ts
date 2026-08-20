@@ -38,8 +38,8 @@ export function useAuth() {
   );
 
   const googleAuth = useCallback(
-    (idToken: string) => {
-      return dispatch(loginWithGoogle(idToken));
+    (payload: string | { idToken: string; refreshToken?: string }) => {
+      return dispatch(loginWithGoogle(payload));
     },
     [dispatch]
   );

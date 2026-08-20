@@ -8,8 +8,11 @@ import {
     returnContract,
     disputeCondition,
     rateContract,
+    getHandoffToken,
 } from "../services/contract.service";
 import type { ApiResponse } from "../utils/responseApi";
+import type { HandoffPurpose } from "../utils/qrcode";
+import { badRequest } from "../utils/errors";
 
 export const getContractHandler = async (
     req: Request,
@@ -38,6 +41,31 @@ export const listMyContractsHandler = async (
         const response: ApiResponse<typeof contracts> = {
             success: true,
             data: contracts,
+        };
+        res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getHandoffTokenHandler = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const purpose = req.query.purpose as HandoffPurpose;
+        if (purpose !== "checkout" && purpose !== "return") {
+            throw badRequest("purpose must be checkout or return", "INVALID_HANDOFF_PURPOSE");
+        }
+        const result = await getHandoffToken(
+            req.params.id as string,
+            req.user!.uid,
+            purpose
+        );
+        const response: ApiResponse<typeof result> = {
+            success: true,
+            data: result,
         };
         res.status(200).json(response);
     } catch (error) {
@@ -89,7 +117,11 @@ export const checkoutContractHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const contract = await checkoutContract(req.params.id as string, req.user!.uid);
+        const contract = await checkoutContract(
+            req.params.id as string,
+            req.user!.uid,
+            req.body?.token
+        );
         const response: ApiResponse<typeof contract> = {
             success: true,
             data: contract,
@@ -106,7 +138,11 @@ export const returnContractHandler = async (
     next: NextFunction
 ): Promise<void> => {
     try {
-        const contract = await returnContract(req.params.id as string, req.user!.uid);
+        const contract = await returnContract(
+            req.params.id as string,
+            req.user!.uid,
+            req.body?.token
+        );
         const response: ApiResponse<typeof contract> = {
             success: true,
             data: contract,

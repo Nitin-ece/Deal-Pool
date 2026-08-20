@@ -30,7 +30,26 @@ interface FirebaseRefreshResponse {
     token_type: string;
 }
 
-const firebaseApiKey = process.env.FIREBASE_API_KEY;
+/** Public profile shape returned by auth endpoints (numeric ratings). */
+export type PublicProfile = Omit<Profile, "avg_rating" | "trust_score"> & {
+    avg_rating: number;
+    trust_score?: number;
+    reliability_strikes?: number;
+};
+
+export const toPublicProfile = (profile: Profile): PublicProfile => ({
+    ...profile,
+    avg_rating: Number(profile.avg_rating ?? 0),
+    rating_count: Number(profile.rating_count ?? 0),
+    reliability_strikes:
+        profile.reliability_strikes !== undefined
+            ? Number(profile.reliability_strikes)
+            : undefined,
+    trust_score:
+        profile.trust_score !== undefined ? Number(profile.trust_score) : undefined,
+});
+
+const firebaseApiKey = process.env.FIREBASE_API_KEY?.replace(/^"|"$/g, "");
 
 if (!firebaseApiKey) {
     throw new Error("FIREBASE_API_KEY is not configured");
@@ -38,6 +57,17 @@ if (!firebaseApiKey) {
 
 const firebaseAuthUrl = "https://identitytoolkit.googleapis.com/v1/accounts";
 const firebaseSecureTokenUrl = "https://securetoken.googleapis.com/v1/token";
+
+const isUniqueViolation = (error: unknown, constraint?: string): boolean => {
+    const pgError = error as { code?: string; constraint?: string; message?: string; detail?: string };
+    if (pgError.code !== "23505") return false;
+    if (!constraint) return true;
+    return (
+        pgError.constraint === constraint ||
+        Boolean(pgError.message?.includes(constraint)) ||
+        Boolean(pgError.detail?.includes(constraint))
+    );
+};
 
 const firebaseRequest = async <T>(
     endpoint: string,
@@ -69,6 +99,10 @@ const firebaseRequest = async <T>(
             throw unauthorized("Invalid email or password", "INVALID_CREDENTIALS");
         }
 
+        if (message === "TOO_MANY_ATTEMPTS_TRY_LATER") {
+            throw badRequest("Too many attempts. Try again later.", "TOO_MANY_ATTEMPTS");
+        }
+
         throw unauthorized("Firebase authentication failed", "FIREBASE_AUTH_FAILED");
     }
 
@@ -80,7 +114,8 @@ export const registerUser = async (email: string, password: string) => {
         throw unauthorized("Email and password are required", "INVALID_CREDENTIALS");
     }
 
-    const existing = await findProfileByEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await findProfileByEmail(normalizedEmail);
 
     if (existing) {
         throw conflict("Profile already exists", "PROFILE_EXISTS");
@@ -94,7 +129,7 @@ export const registerUser = async (email: string, password: string) => {
     }
 
     const firebaseUser = await firebaseRequest<FirebaseAuthResponse>("signUp", {
-        email,
+        email: normalizedEmail,
         password,
         returnSecureToken: true,
     });
@@ -102,12 +137,12 @@ export const registerUser = async (email: string, password: string) => {
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
-        const profile = await createProfile(firebaseUser.localId, client);
+        const profile = await createProfile(firebaseUser.localId, client, normalizedEmail);
         await grantSignupBonus(profile.id, client);
         await client.query("COMMIT");
 
         return {
-            profile,
+            profile: toPublicProfile(profile),
             token: firebaseUser.idToken,
             refreshToken: firebaseUser.refreshToken,
         };
@@ -130,29 +165,23 @@ export const loginUser = async (email: string, password: string) => {
         throw unauthorized("Email and password are required", "INVALID_CREDENTIALS");
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     const firebaseUser = await firebaseRequest<FirebaseAuthResponse>(
         "signInWithPassword",
-        { email, password, returnSecureToken: true }
+        { email: normalizedEmail, password, returnSecureToken: true }
     );
 
-    // login flow only ever has the Firebase UID at this point, so this lookup is correct as-is
-    const profile = await findProfileByFirebaseUidOrThrow(firebaseUser.localId);
+    // Heal orphaned Firebase users that never got a Postgres profile row
+    const profile = await ensureProfileForFirebaseUser(
+        firebaseUser.localId,
+        firebaseUser.email || normalizedEmail
+    );
 
     return {
-        profile,
+        profile: toPublicProfile(profile),
         token: firebaseUser.idToken,
         refreshToken: firebaseUser.refreshToken,
     };
-};
-
-const findProfileByFirebaseUidOrThrow = async (firebaseUid: string): Promise<Profile> => {
-    const profile = await findProfileByFirebaseUid(firebaseUid);
-
-    if (!profile) {
-        throw unauthorized("User profile not found", "PROFILE_NOT_FOUND");
-    }
-
-    return profile;
 };
 
 export const refreshFirebaseToken = async (refreshToken: string | undefined) => {
@@ -185,13 +214,40 @@ export const refreshFirebaseToken = async (refreshToken: string | undefined) => 
     };
 };
 
-export const createProfile = async (uid: string, client?: PoolClient): Promise<Profile> => {
+export const createProfile = async (
+    uid: string,
+    client?: PoolClient,
+    emailHint?: string | null
+): Promise<Profile> => {
     const firebaseUser = await firebaseAuth.getUser(uid);
 
     const existing = await findProfileByFirebaseUid(uid);
-
     if (existing) {
         throw conflict("Profile already exists", "PROFILE_EXISTS");
+    }
+
+    const email =
+        firebaseUser.email?.trim().toLowerCase() ||
+        emailHint?.trim().toLowerCase() ||
+        null;
+
+    if (!email) {
+        throw badRequest(
+            "Google account must expose an email address",
+            "EMAIL_REQUIRED"
+        );
+    }
+
+    const emailOwner = await findProfileByEmail(email);
+    if (emailOwner && emailOwner.firebase_uid !== uid) {
+        if (firebaseUser.emailVerified) {
+            const updated = await updateProfileFields(emailOwner.id, { firebase_uid: uid });
+            if (updated) return updated;
+        }
+        throw conflict(
+            "An account with this email already exists. Sign in with email and password.",
+            "EMAIL_EXISTS"
+        );
     }
 
     const maxAttempts = 5;
@@ -201,20 +257,26 @@ export const createProfile = async (uid: string, client?: PoolClient): Promise<P
         const username = generateUsername();
 
         try {
-            return await insertProfile({
-                firebaseUid: uid,
-                username,
-                email: firebaseUser.email ?? null,
-                profilePhoto: firebaseUser.photoURL ?? null,
-            }, client);
+            return await insertProfile(
+                {
+                    firebaseUid: uid,
+                    username,
+                    email,
+                    profilePhoto: firebaseUser.photoURL ?? null,
+                },
+                client
+            );
         } catch (error) {
-            const pgError = error as { code?: string; constraint?: string };
-
-            if (pgError.code === "23505" && pgError.constraint === "profiles_name_key") {
+            if (isUniqueViolation(error, "profiles_name_key")) {
                 lastError = error;
                 continue;
             }
-
+            if (isUniqueViolation(error, "profiles_email_key")) {
+                throw conflict(
+                    "An account with this email already exists. Sign in with email and password.",
+                    "EMAIL_EXISTS"
+                );
+            }
             throw error;
         }
     }
@@ -223,18 +285,64 @@ export const createProfile = async (uid: string, client?: PoolClient): Promise<P
 };
 
 /**
+ * Resolve a Firebase UID to a Postgres profile, creating one (with signup bonus)
+ * when the Auth user exists but the profile row does not.
+ */
+export const ensureProfileForFirebaseUser = async (
+    firebaseUid: string,
+    emailHint?: string | null
+): Promise<Profile> => {
+    const existing = await findProfileByFirebaseUid(firebaseUid);
+    if (existing) return existing;
+
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+
+        // Re-check inside the transaction window
+        const again = await findProfileByFirebaseUid(firebaseUid);
+        if (again) {
+            await client.query("COMMIT");
+            return again;
+        }
+
+        const profile = await createProfile(firebaseUid, client, emailHint);
+        await grantSignupBonus(profile.id, client);
+        await client.query("COMMIT");
+        return profile;
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+
+        // Concurrent create won the race — return the winner
+        if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            (error as { code?: string }).code === "PROFILE_EXISTS"
+        ) {
+            const raced = await findProfileByFirebaseUid(firebaseUid);
+            if (raced) return raced;
+        }
+
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+/**
  * Used by GET /api/auth/me and PATCH /api/auth/change-password.
  * Called with req.user!.uid, which is the POSTGRES profile id (per authMiddleware),
  * NOT the Firebase UID — so this must look up by Postgres id.
  */
-export const getProfile = async (postgresUid: string): Promise<Profile> => {
+export const getProfile = async (postgresUid: string): Promise<PublicProfile> => {
     const profile = await findProfileById(postgresUid);
 
     if (!profile) {
         throw unauthorized("User profile not found", "PROFILE_NOT_FOUND");
     }
 
-    return profile;
+    return toPublicProfile(profile);
 };
 
 /**
@@ -254,31 +362,25 @@ export const verifyFirebaseToken = async (token: string) => {
     }
 };
 
-export const googleLoginUser = async (idToken: string) => {
+export const googleLoginUser = async (
+    idToken: string,
+    refreshToken?: string
+) => {
     if (!idToken) {
         throw unauthorized("Firebase ID token is required", "INVALID_TOKEN");
     }
 
     const decoded = await verifyFirebaseToken(idToken);
+    const email =
+        typeof decoded.email === "string" ? decoded.email : undefined;
 
-    let profile = await findProfile(decoded.uid);
+    const profile = await ensureProfileForFirebaseUser(decoded.uid, email);
 
-    if (!profile) {
-        const client = await pool.connect();
-        try {
-            await client.query("BEGIN");
-            profile = await createProfile(decoded.uid, client);
-            await grantSignupBonus(profile.id, client);
-            await client.query("COMMIT");
-        } catch (error) {
-            await client.query("ROLLBACK").catch(() => {});
-            throw error;
-        } finally {
-            client.release();
-        }
-    }
-
-    return { profile, token: idToken };
+    return {
+        profile: toPublicProfile(profile),
+        token: idToken,
+        refreshToken: refreshToken || undefined,
+    };
 };
 
 interface UpdateProfileInput {
@@ -296,11 +398,12 @@ const UPDATABLE_FIELDS: (keyof UpdateProfileInput)[] = [
 /**
  * Called with req.user!.uid (POSTGRES id) from PATCH /api/auth/update.
  * updateProfileFields must match on the Postgres profiles.id column.
+ * Role escalation is prevented by only allowing UPDATABLE_FIELDS.
  */
 export const updateProfile = async (
     postgresUid: string,
     updates: UpdateProfileInput
-): Promise<Profile> => {
+): Promise<PublicProfile> => {
     const fields: Record<string, unknown> = {};
 
     for (const key of UPDATABLE_FIELDS) {
@@ -320,17 +423,13 @@ export const updateProfile = async (
             throw notFound("User profile not found", "PROFILE_NOT_FOUND");
         }
 
-        return profile;
+        return toPublicProfile(profile);
     } catch (error) {
-        const pgError = error as { code?: string; constraint?: string };
-
-        if (pgError.code === "23505") {
-            if (pgError.constraint === "profiles_name_key") {
-                throw conflict("Username already taken", "USERNAME_TAKEN");
-            }
-            if (pgError.constraint === "profiles_email_key") {
-                throw conflict("Email already in use", "EMAIL_TAKEN");
-            }
+        if (isUniqueViolation(error, "profiles_name_key")) {
+            throw conflict("Username already taken", "USERNAME_TAKEN");
+        }
+        if (isUniqueViolation(error, "profiles_email_key")) {
+            throw conflict("Email already in use", "EMAIL_TAKEN");
         }
 
         throw error;
@@ -367,7 +466,13 @@ export const changeUserPassword = async (
         throw unauthorized("User profile not found", "UNAUTHORIZED");
     }
 
-    // Verify current password by signing in via Firebase REST
+    if (!profile.email) {
+        throw badRequest(
+            "This account has no email/password credentials",
+            "PASSWORD_NOT_AVAILABLE"
+        );
+    }
+
     const verifyResponse = await fetch(
         `${firebaseAuthUrl}:signInWithPassword?key=${firebaseApiKey}`,
         {
@@ -388,6 +493,5 @@ export const changeUserPassword = async (
         );
     }
 
-    // Update password via Firebase Admin SDK — must use the FIREBASE uid, not postgresUid
     await firebaseAuth.updateUser(profile.firebase_uid, { password: newPassword });
 };

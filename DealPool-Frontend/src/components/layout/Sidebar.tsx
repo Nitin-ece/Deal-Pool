@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Compass,
+  FileText,
   FolderHeart,
   LogOut,
   PlusCircle,
@@ -18,6 +19,7 @@ export function Sidebar() {
 
   const navItems = [
     { name: "Live radar", path: "/deals", icon: Compass },
+    { name: "Contracts", path: "/contracts", icon: FileText },
     { name: "Post a need", path: "/deals/new", icon: PlusCircle },
     { name: "My needs", path: "/my-deals", icon: FolderHeart },
     { name: "Settings", path: "/settings", icon: Settings },

@@ -11,6 +11,7 @@ import { MyDeals } from "./pages/MyDeals";
 import { Settings } from "./pages/Settings";
 import { Admin } from "./pages/Admin";
 import { Auth } from "./pages/Auth";
+import { Contracts } from "./pages/Contracts";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/deals/new" element={<CreateDeal />} />
             <Route path="/create-deal" element={<CreateDeal />} />
             <Route path="/my-deals" element={<MyDeals />} />
+            <Route path="/contracts" element={<Contracts />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={<Admin />} />
           </Route>

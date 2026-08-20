@@ -159,6 +159,44 @@ export const releaseEscrow = async (
     );
 };
 
+/** Captures a fee from escrow without crediting any user wallet (platform capture). */
+export const captureEscrowFee = async (
+    contractId: string,
+    fromUserId: string,
+    amount: number,
+    client: PoolClient,
+    description?: string
+): Promise<LedgerEntry | null> => {
+    if (amount <= 0) return null;
+
+    const { currentEscrow } = await sumEscrowForContract(contractId, client);
+    if (amount > currentEscrow) {
+        throw conflict(
+            `Escrow shortfall: cannot capture ₹${amount.toFixed(2)}, escrow holds ₹${currentEscrow.toFixed(2)}`,
+            "ESCROW_INTEGRITY_ERROR"
+        );
+    }
+
+    await updateWalletBalance(fromUserId, 0, -amount, client);
+
+    const fromWallet = await findWalletByUserId(fromUserId, false, client);
+
+    return insertLedgerEntry(
+        {
+            contractId,
+            userId: fromUserId,
+            fromWalletId: fromWallet?.id ?? null,
+            toWalletId: null,
+            amount,
+            entryType: "fee_capture",
+            description:
+                description ??
+                `Platform cancellation fee capture from escrow for contract ${contractId}`,
+        },
+        client
+    );
+};
+
 export const refundAllEscrow = async (
     contractId: string,
     requesterId: string,

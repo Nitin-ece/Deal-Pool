@@ -1,4 +1,4 @@
-# MakerPool Backend — Coin Economy & Resource Sharing Platform (PRD v2.1)
+# MakerPool Backend — Coin Economy & Resource Sharing Platform (PRD v2.2)
 
 MakerPool is a closed-loop coin economy and physical resource-sharing backend built with Express 5, TypeScript, PostgreSQL (PostGIS), Firebase Auth, and cryptographic transaction chaining.
 
@@ -176,12 +176,13 @@ All application errors are thrown using the centralized `AppError` class (`badRe
 ### Contracts Lifecycle (`/api/contracts`)
 - `GET /api/contracts` — List caller's contracts
 - `GET /api/contracts/:id` — Retrieve contract status, escrow breakdown, and dispute window
-- `POST /api/contracts/:id/confirm` — Confirm participation, reveal contact info, transfer custody
-- `POST /api/contracts/:id/cancel` — Cancel before checkout (90% refund, 10% cancellation fee)
-- `POST /api/contracts/:id/checkout` — Mark item picked up (`active`)
-- `POST /api/contracts/:id/return` — Mark item returned, release lend fee immediately, start 24h dispute timer
+- `POST /api/contracts/:id/confirm` — Confirm participation (both parties required before contact reveal & custody transfer)
+- `POST /api/contracts/:id/cancel` — Cancel before checkout (90% escrow refund, 10% cancellation fee captured by platform)
+- `GET /api/contracts/:id/handoff-token?purpose=checkout|return` — Generate short-lived HMAC handoff token for QR checkout/return
+- `POST /api/contracts/:id/checkout` — Mark item picked up (`active`); requires `{ "token": "..." }` from handoff-token
+- `POST /api/contracts/:id/return` — Mark item returned; requires `{ "token": "..." }`; releases lend fee, starts 24h dispute timer
 - `POST /api/contracts/:id/dispute-condition` — Flag item condition / file dispute report
-- `POST /api/contracts/:id/rate` — Submit rating for other party
+- `POST /api/contracts/:id/rate` — Persist rating (`ratings` table) and recompute `profiles.avg_rating` / `rating_count` for the other party
 
 ### Admin & Disputes (`/api/admin`)
 - `GET /api/admin/users` — List system profiles with pagination
