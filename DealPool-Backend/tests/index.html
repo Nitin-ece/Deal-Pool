@@ -735,6 +735,9 @@
         const provider = new GoogleAuthProvider();
 
         const apiBaseInput = document.getElementById("apiBase");
+        if (window.location.origin && window.location.origin.startsWith("http")) {
+            apiBaseInput.value = window.location.origin;
+        }
         const consoleLogs = document.getElementById("consoleLogs");
         const logCountEl = document.getElementById("logCount");
         let logCounter = 0;

@@ -1,6 +1,6 @@
-// initializing the app and configurations
 import express from "express";
 import cookieParser from "cookie-parser";
+import path from "path";
 
 import authRoutes from "./routes/auth.route";
 import { errorHandler } from "./middleware/error.middleware";
@@ -27,6 +27,13 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(requestLogger);
+
+// Serve interactive test UI dashboard
+const testsDir = path.join(process.cwd(), "tests");
+app.use("/tests", express.static(testsDir));
+app.get("/test-dashboard", (_req, res) => {
+    res.sendFile(path.join(testsDir, "index.html"));
+});
 
 app.use(apiRateLimiter);
 
