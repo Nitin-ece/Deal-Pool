@@ -5,6 +5,7 @@ $Tests = @(
     "tests/auth.test.ts",
     "tests/admin.test.ts",
     "tests/deals.test.ts",
+    "tests/discovery.test.ts",
     "tests/offers.test.ts",
     "tests/resources.test.ts",
     "tests/transactions.test.ts",

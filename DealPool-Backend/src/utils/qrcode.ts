@@ -5,10 +5,16 @@ export type HandoffPurpose = "checkout" | "return";
 
 const TOKEN_TTL_MS = 15 * 60 * 1000;
 
-const getSecret = (): string =>
-    process.env.CONTRACT_TOKEN_SECRET ||
-    process.env.FIREBASE_PRIVATE_KEY ||
-    "dev-handoff-secret-change-in-production";
+const getSecret = (): string => {
+    const secret = process.env.CONTRACT_TOKEN_SECRET;
+    if (!secret) {
+        throw new Error(
+            "CONTRACT_TOKEN_SECRET environment variable is required. " +
+            "Generate a random secret (e.g. `openssl rand -hex 32`) and set it in .env."
+        );
+    }
+    return secret;
+};
 
 export const generateHandoffToken = (
     contractId: string,

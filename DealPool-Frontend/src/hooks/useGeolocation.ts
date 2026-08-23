@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../redux/store";
 import { setUserLocation } from "../redux/slices/dealsSlice";
 import { setManualLocation, requestUserLocation as requestSliceLocation } from "../redux/slices/locationSlice";
+import { DEFAULT_LOCATION } from "../lib/constants";
 
 export interface PresetCity {
   name: string;
@@ -11,7 +12,7 @@ export interface PresetCity {
 }
 
 export const CITY_PRESETS: PresetCity[] = [
-  { name: "New Delhi (CP)", lat: 28.6304, lng: 77.2177, address: "Connaught Place, Central Delhi" },
+  { name: "New Delhi (CP)", lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng, address: "Connaught Place, Central Delhi" },
   { name: "Bengaluru (Indiranagar)", lat: 12.9784, lng: 77.6408, address: "100ft Road, Indiranagar, Bengaluru" },
   { name: "Mumbai (Bandra)", lat: 19.0596, lng: 72.8295, address: "Bandra West, Mumbai" },
   { name: "San Francisco (Mission)", lat: 37.7599, lng: -122.4148, address: "Valencia St, Mission District, SF" },

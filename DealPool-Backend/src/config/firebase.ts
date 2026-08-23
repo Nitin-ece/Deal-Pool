@@ -1,5 +1,5 @@
-// initializng the fire setup 
-//  injecting env vars into it
+// Firebase Admin SDK configuration.
+// Loads .env.test when NODE_ENV=test for test isolation.
 import dotenv from "dotenv";
 import {
     cert,
@@ -8,7 +8,8 @@ import {
 } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
+dotenv.config({ path: envFile });
 
 const app =
     getApps().length > 0

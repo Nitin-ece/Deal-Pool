@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api";
 import { getErrorMessage } from "../../lib/errors";
 import { UserProfile } from "../../types";
@@ -131,10 +131,6 @@ const authSlice = createSlice({
     clearAuthError: (state) => {
       state.error = null;
     },
-    setMockUser: (state, action: PayloadAction<UserProfile>) => {
-      state.user = action.payload;
-      state.initialized = true;
-    },
   },
   extraReducers: (builder) => {
     // fetchMe
@@ -224,5 +220,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, setMockUser } = authSlice.actions;
+export const { clearAuthError } = authSlice.actions;
 export default authSlice.reducer;

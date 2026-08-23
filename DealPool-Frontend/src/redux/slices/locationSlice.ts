@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { DEFAULT_LOCATION } from "../../lib/constants";
 
 export type LocationPermission = "prompt" | "granted" | "denied" | "loading";
 
@@ -12,12 +13,7 @@ export interface LocationState {
   error: string | null;
 }
 
-const DEFAULT_COORDS = {
-  lat: 28.6304,
-  lng: 77.2177,
-  address: "Connaught Place, New Delhi",
-  cityName: "New Delhi",
-};
+const DEFAULT_COORDS = DEFAULT_LOCATION;
 
 const initialState: LocationState = {
   lat: DEFAULT_COORDS.lat,

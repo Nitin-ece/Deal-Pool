@@ -138,16 +138,21 @@ export const findNearbyDeals = async (
     radiusKm: number,
     limit: number,
     offset: number
-): Promise<(Deal & { distance_km: number })[]> => {
+): Promise<(Deal & { distance_km: number; has_offers: boolean })[]> => {
     const result = await pool.query(
         `
         SELECT
             ${SELECT_LIST},
-            ST_Distance(location, ST_MakePoint($1, $2)::geography) / 1000 AS distance_km
-        FROM deals
-        WHERE status = 'open'
-          AND ST_DWithin(location, ST_MakePoint($1, $2)::geography, $3 * 1000)
-        ORDER BY location <-> ST_MakePoint($1, $2)::geography
+            ST_Distance(d.location, ST_MakePoint($1, $2)::geography) / 1000 AS distance_km,
+            EXISTS (
+                SELECT 1 FROM offers o
+                WHERE o.deal_id = d.id
+                  AND o.status IN ('pending', 'accepted')
+            ) AS has_offers
+        FROM deals d
+        WHERE d.status = 'open'
+          AND ST_DWithin(d.location, ST_MakePoint($1, $2)::geography, $3 * 1000)
+        ORDER BY d.location <-> ST_MakePoint($1, $2)::geography
         LIMIT $4 OFFSET $5
         `,
         [lng, lat, radiusKm, limit, offset]

@@ -37,7 +37,7 @@ export const discoveryApi = createApi({
         // If deals array is returned directly from fallback endpoint
         const deals = Array.isArray(payload) ? payload : [];
         const needs: DiscoveryMarker[] = deals
-          .filter((d: any) => d.category !== "Offer")
+          .filter((d: any) => !d.has_offers)
           .map((d: any) => ({
             id: d.id,
             type: "need" as const,
@@ -53,7 +53,7 @@ export const discoveryApi = createApi({
           }));
 
         const offers: DiscoveryMarker[] = deals
-          .filter((d: any) => d.category === "Offer")
+          .filter((d: any) => d.has_offers)
           .map((d: any) => ({
             id: d.id,
             type: "offer" as const,

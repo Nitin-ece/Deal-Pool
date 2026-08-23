@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { DEFAULT_RADIUS_KM } from "../../lib/constants";
 
 export interface DiscoveryMarker {
   id: string;
@@ -23,7 +24,7 @@ export interface MapState {
 }
 
 const initialState: MapState = {
-  radiusKm: 5,
+  radiusKm: DEFAULT_RADIUS_KM,
   selectedMarker: null,
   hoveredMarkerId: null,
   activeFilter: "all",

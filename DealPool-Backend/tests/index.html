@@ -1,118 +1,725 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase Auth Test</title>
-
+    <title>DealPool — Interactive Test Suite & Debug Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-card: #111827;
+            --bg-hover: #1f2937;
+            --bg-input: #1a2234;
+            --border-color: #2b384e;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --primary-emerald: #10b981;
+            --primary-emerald-hover: #059669;
+            --accent-blue: #3b82f6;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-purple: #8b5cf6;
+            --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-code: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 30px;
+            font-family: var(--font-main);
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        button {
-            margin-right: 8px;
-            margin-bottom: 15px;
-            padding: 8px 14px;
+        /* Top Header */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, var(--primary-emerald), #047857);
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 5px 12px;
+            border-radius: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .brand h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .url-box {
+            display: flex;
+            align-items: center;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 4px 10px;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .url-box input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-family: var(--font-code);
+            font-size: 13px;
+            width: 220px;
+            outline: none;
+        }
+
+        .btn {
+            background: var(--primary-emerald);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
             cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        input,
-        textarea {
-            display: block;
-            margin-bottom: 20px;
+        .btn:hover { background: var(--primary-emerald-hover); }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-outline:hover { background: var(--bg-hover); }
+        .btn-rose { background: var(--accent-rose); }
+        .btn-rose:hover { background: #e11d48; }
+
+        /* Main Container */
+        .main-container {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 61px);
         }
 
-        #apiBase {
-            width: 300px;
-            padding: 6px 10px;
+        @media (max-width: 900px) {
+            .main-container { grid-template-columns: 1fr; overflow: auto; height: auto; }
         }
 
-        #output {
-            width: 700px;
-            max-height: 600px;
+        /* Sidebar Tabs & Endpoints */
+        .sidebar {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
             overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
         }
 
-        .response {
-            border-bottom: 1px solid #ccc;
-            padding: 15px 5px;
+        .nav-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
             margin-bottom: 10px;
         }
 
-        .response-title {
-            font-weight: bold;
-            margin-bottom: 8px;
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            transition: all 0.15s ease;
         }
 
-        .response pre {
+        .nav-item:hover { background: var(--bg-hover); color: var(--text-main); }
+        .nav-item.active { background: var(--bg-input); color: var(--primary-emerald); font-weight: 600; border-left: 3px solid var(--primary-emerald); }
+
+        .method-badge {
+            font-family: var(--font-code);
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .get { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .post { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .patch { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .delete { background: rgba(244, 63, 94, 0.2); color: #f87171; }
+
+        /* Workspace Area */
+        .workspace {
+            display: grid;
+            grid-template-rows: 1fr 340px;
+            background: var(--bg-dark);
+            overflow: hidden;
+        }
+
+        .runner-panel {
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel-card h2 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text-main);
+            font-family: var(--font-main);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: var(--primary-emerald);
+        }
+
+        .form-group textarea {
+            font-family: var(--font-code);
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Console Log Panel */
+        .console-panel {
+            background: #060911;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .console-header {
+            background: var(--bg-card);
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .console-logs {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+            font-family: var(--font-code);
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .log-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .log-time { color: var(--text-muted); font-size: 11px; }
+        .log-status { font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+        .status-2xx { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .status-4xx, .status-5xx { background: rgba(244, 63, 94, 0.2); color: #f87171; }
+
+        .log-json {
+            color: #d1d5db;
             white-space: pre-wrap;
             word-break: break-word;
+            background: var(--bg-card);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-top: 4px;
         }
+
+        /* Test Suite Results Grid */
+        .suite-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .test-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .test-card.passed { border-left: 4px solid var(--primary-emerald); }
+        .test-card.failed { border-left: 4px solid var(--accent-rose); }
+        .test-card.running { border-left: 4px solid var(--accent-amber); }
+
+        .test-name { font-size: 13px; font-weight: 600; }
+        .test-duration { font-size: 11px; color: var(--text-muted); font-family: var(--font-code); }
+
+        .status-pill {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .status-pill.pass { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .status-pill.fail { background: rgba(244, 63, 94, 0.2); color: #f87171; }
+        .status-pill.pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     </style>
 </head>
-
 <body>
 
-    <h1>Firebase Google Auth Test</h1>
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <div class="logo-badge">DealPool</div>
+            <h1>Interactive Test & Debug Suite</h1>
+        </div>
 
-    <h3>API Base URL</h3>
+        <div class="header-controls">
+            <div class="url-box">
+                <span style="color: var(--text-muted);">API Base:</span>
+                <input id="apiBase" type="text" value="http://localhost:3000">
+            </div>
+            <button class="btn" id="runAllBtn">
+                ▶ Run All Suite Tests
+            </button>
+            <button class="btn btn-outline" id="clearLogsBtn">
+                Clear Console
+            </button>
+        </div>
+    </header>
 
-    <input
-        id="apiBase"
-        type="text"
-        value="http://localhost:3000"
-    >
+    <!-- Main Container -->
+    <div class="main-container">
 
-    <button id="googleLogin">
-        Continue with Google
-    </button>
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="nav-section">
+                <div class="section-title">Automated Testing</div>
+                <div class="nav-item active" data-tab="tab-suite">
+                    <span>⚡ Automated Suite Runner</span>
+                    <span class="method-badge post">TEST</span>
+                </div>
+            </div>
 
-    <button id="getMe">
-        GET /me
-    </button>
+            <div class="nav-section">
+                <div class="section-title">Auth & Identity</div>
+                <div class="nav-item" data-tab="tab-auth-register">
+                    <span>POST /api/auth/register</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+                <div class="nav-item" data-tab="tab-auth-login">
+                    <span>POST /api/auth/login</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+                <div class="nav-item" data-tab="tab-auth-google">
+                    <span>POST /api/auth/google</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+                <div class="nav-item" data-tab="tab-auth-me">
+                    <span>GET /api/auth/me</span>
+                    <span class="method-badge get">GET</span>
+                </div>
+                <div class="nav-item" data-tab="tab-auth-logout">
+                    <span>POST /api/auth/logout</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+            </div>
 
-    <button id="logout">
-        Logout
-    </button>
+            <div class="nav-section">
+                <div class="section-title">Discovery & Deals</div>
+                <div class="nav-item" data-tab="tab-discovery">
+                    <span>GET /api/discovery/nearby</span>
+                    <span class="method-badge get">GET</span>
+                </div>
+                <div class="nav-item" data-tab="tab-deals-create">
+                    <span>POST /api/deals</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+                <div class="nav-item" data-tab="tab-deals-list">
+                    <span>GET /api/deals</span>
+                    <span class="method-badge get">GET</span>
+                </div>
+                <div class="nav-item" data-tab="tab-offers-create">
+                    <span>POST /api/deals/:id/offers</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+            </div>
 
-    <h3>Firebase UID</h3>
+            <div class="nav-section">
+                <div class="section-title">Wallet & Ledger</div>
+                <div class="nav-item" data-tab="tab-wallet-me">
+                    <span>GET /api/wallet/me</span>
+                    <span class="method-badge get">GET</span>
+                </div>
+                <div class="nav-item" data-tab="tab-reports">
+                    <span>POST /api/reports</span>
+                    <span class="method-badge post">POST</span>
+                </div>
+            </div>
+        </div>
 
-    <input
-        id="uid"
-        type="text"
-        readonly
-        style="width: 500px;"
-    >
+        <!-- Workspace & Logs -->
+        <div class="workspace">
+            
+            <!-- Dynamic Tab Content -->
+            <div class="runner-panel" id="runnerPanel">
+                
+                <!-- Tab: Automated Test Suite Runner -->
+                <div class="tab-content" id="tab-suite">
+                    <div class="panel-card">
+                        <h2>⚡ Interactive Automated Integration Test Suite</h2>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                            Executes a live browser-based test sequence against your running backend API server (`http://localhost:3000`). Validates HTTP response codes, JSON schemas, needs vs. offers classification, and cookie sessions.
+                        </p>
+                        
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                            <button class="btn" id="startFullSuiteBtn">▶ Execute Full Test Sequence</button>
+                            <span id="suiteProgress" style="font-size: 13px; font-weight: 600; align-self: center; color: var(--accent-amber);">Ready to run</span>
+                        </div>
 
-    <h3>Firebase ID Token</h3>
+                        <div class="suite-grid" id="suiteGrid">
+                            <div class="test-card" id="test-card-reg">
+                                <div>
+                                    <div class="test-name">1. User Registration</div>
+                                    <div class="test-duration" id="dur-reg">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-reg">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-login">
+                                <div>
+                                    <div class="test-name">2. User Login & Cookies</div>
+                                    <div class="test-duration" id="dur-login">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-login">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-me">
+                                <div>
+                                    <div class="test-name">3. Session Validation (/me)</div>
+                                    <div class="test-duration" id="dur-me">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-me">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-deal">
+                                <div>
+                                    <div class="test-name">4. Create Deal (Need)</div>
+                                    <div class="test-duration" id="dur-deal">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-deal">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-disc1">
+                                <div>
+                                    <div class="test-name">5. Discovery Needs Filter</div>
+                                    <div class="test-duration" id="dur-disc1">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-disc1">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-offer">
+                                <div>
+                                    <div class="test-name">6. Submit Offer</div>
+                                    <div class="test-duration" id="dur-offer">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-offer">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-disc2">
+                                <div>
+                                    <div class="test-name">7. Discovery Offers Transition</div>
+                                    <div class="test-duration" id="dur-disc2">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-disc2">PENDING</span>
+                            </div>
+                            <div class="test-card" id="test-card-wallet">
+                                <div>
+                                    <div class="test-name">8. Wallet Balance & Bonus</div>
+                                    <div class="test-duration" id="dur-wallet">-</div>
+                                </div>
+                                <span class="status-pill pending" id="pill-wallet">PENDING</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-    <textarea
-        id="idToken"
-        readonly
-        rows="6"
-        cols="70"
-    ></textarea>
+                <!-- Tab: Auth Register -->
+                <div class="tab-content" id="tab-auth-register" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/auth/register</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" id="regEmail" value="user@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" id="regPassword" value="TestPassword123!">
+                            </div>
+                        </div>
+                        <button class="btn" id="execRegister">Execute Register</button>
+                    </div>
+                </div>
 
-    <h3>Responses</h3>
+                <!-- Tab: Auth Login -->
+                <div class="tab-content" id="tab-auth-login" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/auth/login</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" id="loginEmail" value="user@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" id="loginPassword" value="TestPassword123!">
+                            </div>
+                        </div>
+                        <button class="btn" id="execLogin">Execute Login</button>
+                    </div>
+                </div>
 
-    <div id="output"></div>
+                <!-- Tab: Auth Google -->
+                <div class="tab-content" id="tab-auth-google" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/auth/google (Firebase Web Auth)</h2>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                            Pops up real Firebase Google Authentication modal, extracts ID token, and sends to `/api/auth/google`.
+                        </p>
+                        <button class="btn" id="execGoogleLogin">Sign In With Google Popup</button>
+                    </div>
+                </div>
 
+                <!-- Tab: Auth Me -->
+                <div class="tab-content" id="tab-auth-me" style="display: none;">
+                    <div class="panel-card">
+                        <h2>GET /api/auth/me</h2>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                            Retrieves authenticated user profile using HTTP-only `accessToken` cookie.
+                        </p>
+                        <button class="btn" id="execMe">Fetch My Profile</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Auth Logout -->
+                <div class="tab-content" id="tab-auth-logout" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/auth/logout</h2>
+                        <button class="btn btn-rose" id="execLogout">Execute Logout</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Discovery -->
+                <div class="tab-content" id="tab-discovery" style="display: none;">
+                    <div class="panel-card">
+                        <h2>GET /api/discovery/nearby</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Latitude</label>
+                                <input type="number" step="0.0001" id="discLat" value="28.6304">
+                            </div>
+                            <div class="form-group">
+                                <label>Longitude</label>
+                                <input type="number" step="0.0001" id="discLng" value="77.2177">
+                            </div>
+                            <div class="form-group">
+                                <label>Radius (km)</label>
+                                <input type="number" id="discRadius" value="10">
+                            </div>
+                        </div>
+                        <button class="btn" id="execDiscovery">Fetch Nearby Discovery</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Deals Create -->
+                <div class="tab-content" id="tab-deals-create" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/deals</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Title</label>
+                                <input type="text" id="dealTitle" value="Need a Power Drill">
+                            </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="dealCategory">
+                                    <option value="Physical Resource">Physical Resource</option>
+                                    <option value="Skill">Skill</option>
+                                    <option value="Service">Service</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Budget Min (₹)</label>
+                                <input type="number" id="dealMin" value="300">
+                            </div>
+                            <div class="form-group">
+                                <label>Budget Max (₹)</label>
+                                <input type="number" id="dealMax" value="600">
+                            </div>
+                        </div>
+                        <button class="btn" id="execCreateDeal">Create Deal</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Deals List -->
+                <div class="tab-content" id="tab-deals-list" style="display: none;">
+                    <div class="panel-card">
+                        <h2>GET /api/deals</h2>
+                        <button class="btn" id="execListDeals">Fetch All Deals</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Offers Create -->
+                <div class="tab-content" id="tab-offers-create" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/deals/:id/offers</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Deal ID</label>
+                                <input type="text" id="offerDealId" placeholder="Paste Deal UUID">
+                            </div>
+                            <div class="form-group">
+                                <label>Price (₹)</label>
+                                <input type="number" id="offerPrice" value="450">
+                            </div>
+                            <div class="form-group">
+                                <label>Terms / Notes</label>
+                                <input type="text" id="offerTerms" value="Available tomorrow morning">
+                            </div>
+                        </div>
+                        <button class="btn" id="execCreateOffer">Submit Offer</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Wallet -->
+                <div class="tab-content" id="tab-wallet-me" style="display: none;">
+                    <div class="panel-card">
+                        <h2>GET /api/wallet/me</h2>
+                        <button class="btn" id="execWallet">Check My Wallet Balance</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Reports -->
+                <div class="tab-content" id="tab-reports" style="display: none;">
+                    <div class="panel-card">
+                        <h2>POST /api/reports</h2>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Reason</label>
+                                <input type="text" id="reportReason" value="Spam deal description">
+                            </div>
+                        </div>
+                        <button class="btn" id="execReport">Submit Report</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Console Output Panel -->
+            <div class="console-panel">
+                <div class="console-header">
+                    <span>📡 HTTP REQUEST & RESPONSE LOGS</span>
+                    <span id="logCount" style="font-weight: 500;">0 events</span>
+                </div>
+                <div class="console-logs" id="consoleLogs">
+                    <div style="color: var(--text-muted);">Ready. Click any endpoint or run the full test suite.</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Firebase SDK for Google Auth Popup -->
     <script type="module">
-
-        import {
-            initializeApp
-        } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
-        import {
-            getAuth,
-            GoogleAuthProvider,
-            signInWithPopup
-        } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDeGFAr3dYtJfUJlh2fSzoCmyOC93cOA8E",
@@ -120,129 +727,232 @@
             projectId: "dealpoolbackend",
             storageBucket: "dealpoolbackend.firebasestorage.app",
             messagingSenderId: "113744651425",
-            appId: "1:113744651425:web:e795fd7bd98b22148cbce0",
-            measurementId: "G-LD8T2PZ2HX"
+            appId: "1:113744651425:web:e795fd7bd98b22148cbce0"
         };
 
         const app = initializeApp(firebaseConfig);
-
         const auth = getAuth(app);
-
         const provider = new GoogleAuthProvider();
 
         const apiBaseInput = document.getElementById("apiBase");
+        const consoleLogs = document.getElementById("consoleLogs");
+        const logCountEl = document.getElementById("logCount");
+        let logCounter = 0;
 
-        const googleLogin = document.getElementById("googleLogin");
-        const getMe = document.getElementById("getMe");
-        const logout = document.getElementById("logout");
-        const uid = document.getElementById("uid");
-        const idToken = document.getElementById("idToken");
-        const output = document.getElementById("output");
-
-        function apiUrl(path) {
+        function getApiUrl(path) {
             return `${apiBaseInput.value.replace(/\/$/, "")}${path}`;
         }
 
-        function showResponse(title, response, data) {
-            const container = document.createElement("div");
-            container.className = "response";
+        function logEvent(title, status, data, durationMs = 0) {
+            logCounter++;
+            logCountEl.textContent = `${logCounter} events`;
 
-            const responseTitle = document.createElement("div");
-            responseTitle.className = "response-title";
-            responseTitle.textContent = `${new Date().toLocaleTimeString()} | ${title} | HTTP ${response.status}`;
+            const isSuccess = status >= 200 && status < 300;
+            const statusClass = isSuccess ? 'status-2xx' : 'status-4xx';
 
-            const responseBody = document.createElement("pre");
-            responseBody.textContent = JSON.stringify(data, null, 2);
+            const item = document.createElement("div");
+            item.className = "log-entry";
+            item.innerHTML = `
+                <div class="log-meta">
+                    <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                    <span class="log-status ${statusClass}">HTTP ${status}</span>
+                    <span style="font-weight: 600; color: var(--text-main);">${title}</span>
+                    ${durationMs ? `<span style="color: var(--text-muted); font-size: 11px;">(${durationMs}ms)</span>` : ''}
+                </div>
+                <div class="log-json">${JSON.stringify(data, null, 2)}</div>
+            `;
 
-            container.appendChild(responseTitle);
-            container.appendChild(responseBody);
-
-            output.prepend(container);
+            consoleLogs.prepend(item);
         }
 
-        function showError(title, error) {
-            const container = document.createElement("div");
-            container.className = "response";
+        // Tab Navigation
+        document.querySelectorAll(".nav-item").forEach(item => {
+            item.addEventListener("click", () => {
+                document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+                document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
+                
+                item.classList.add("active");
+                const tabId = item.getAttribute("data-tab");
+                const target = document.getElementById(tabId);
+                if (target) target.style.display = "block";
+            });
+        });
 
-            const responseTitle = document.createElement("div");
-            responseTitle.className = "response-title";
-            responseTitle.textContent = `${new Date().toLocaleTimeString()} | ${title} | ERROR`;
+        document.getElementById("clearLogsBtn").addEventListener("click", () => {
+            consoleLogs.innerHTML = `<div style="color: var(--text-muted);">Logs cleared.</div>`;
+            logCounter = 0;
+            logCountEl.textContent = "0 events";
+        });
 
-            const responseBody = document.createElement("pre");
-            responseBody.textContent = error.message || String(error);
+        // Endpoint Handlers
+        async function makeRequest(endpoint, method = "GET", body = null) {
+            const start = performance.now();
+            try {
+                const options = {
+                    method,
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" }
+                };
+                if (body) options.body = JSON.stringify(body);
 
-            container.appendChild(responseTitle);
-            container.appendChild(responseBody);
+                const res = await fetch(getApiUrl(endpoint), options);
+                const duration = Math.round(performance.now() - start);
+                let json;
+                try { json = await res.json(); } catch { json = { text: await res.text() }; }
 
-            output.prepend(container);
+                logEvent(`${method} ${endpoint}`, res.status, json, duration);
+                return { status: res.status, data: json, duration };
+            } catch (err) {
+                const duration = Math.round(performance.now() - start);
+                logEvent(`${method} ${endpoint}`, 0, { error: err.message }, duration);
+                return { status: 0, error: err.message, duration };
+            }
         }
 
-        googleLogin.addEventListener("click", async () => {
-            if (googleLogin.disabled) return;
-            googleLogin.disabled = true;
+        document.getElementById("execRegister").addEventListener("click", () => {
+            makeRequest("/api/auth/register", "POST", {
+                email: document.getElementById("regEmail").value,
+                password: document.getElementById("regPassword").value
+            });
+        });
 
+        document.getElementById("execLogin").addEventListener("click", () => {
+            makeRequest("/api/auth/login", "POST", {
+                email: document.getElementById("loginEmail").value,
+                password: document.getElementById("loginPassword").value
+            });
+        });
+
+        document.getElementById("execGoogleLogin").addEventListener("click", async () => {
             try {
                 const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                const token = await user.getIdToken();
-
-                uid.value = user.uid;
-                idToken.value = token;
-
-                const response = await fetch(apiUrl("/api/auth/google"), {
-                    method: "POST",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ idToken: token })
-                });
-
-                const data = await response.json();
-                showResponse("POST /api/auth/google", response, data);
-            } catch (error) {
-                console.error(error);
-                showError("POST /api/auth/google", error);
-            } finally {
-                googleLogin.disabled = false;
+                const token = await result.user.getIdToken();
+                makeRequest("/api/auth/google", "POST", { idToken: token });
+            } catch (err) {
+                logEvent("POST /api/auth/google", 0, { error: err.message });
             }
         });
 
-        getMe.addEventListener("click", async () => {
-            try {
-                const response = await fetch(apiUrl("/api/auth/me"), {
-                    method: "GET",
-                    credentials: "include"
-                });
+        document.getElementById("execMe").addEventListener("click", () => makeRequest("/api/auth/me"));
+        document.getElementById("execLogout").addEventListener("click", () => makeRequest("/api/auth/logout", "POST"));
 
-                const data = await response.json();
-                showResponse("GET /api/auth/me", response, data);
-            } catch (error) {
-                console.error(error);
-                showError("GET /api/auth/me", error);
-            }
+        document.getElementById("execDiscovery").addEventListener("click", () => {
+            const lat = document.getElementById("discLat").value;
+            const lng = document.getElementById("discLng").value;
+            const rad = document.getElementById("discRadius").value;
+            makeRequest(`/api/discovery/nearby?lat=${lat}&lng=${lng}&radiusKm=${rad}`);
         });
 
-        logout.addEventListener("click", async () => {
-            try {
-                const response = await fetch(apiUrl("/api/auth/logout"), {
-                    method: "POST",
-                    credentials: "include"
-                });
-
-                const data = await response.json();
-                showResponse("POST /api/auth/logout", response, data);
-
-                await auth.signOut();
-
-                uid.value = "";
-                idToken.value = "";
-            } catch (error) {
-                console.error(error);
-                showError("POST /api/auth/logout", error);
-            }
+        document.getElementById("execCreateDeal").addEventListener("click", () => {
+            makeRequest("/api/deals", "POST", {
+                title: document.getElementById("dealTitle").value,
+                category: document.getElementById("dealCategory").value,
+                budgetMin: Number(document.getElementById("dealMin").value),
+                budgetMax: Number(document.getElementById("dealMax").value),
+                lat: 28.6304,
+                lng: 77.2177,
+                radiusKm: 10
+            });
         });
 
+        document.getElementById("execListDeals").addEventListener("click", () => makeRequest("/api/deals"));
+
+        document.getElementById("execCreateOffer").addEventListener("click", () => {
+            const dealId = document.getElementById("offerDealId").value;
+            if (!dealId) return alert("Please provide a Deal ID");
+            makeRequest(`/api/deals/${dealId}/offers`, "POST", {
+                price: Number(document.getElementById("offerPrice").value),
+                terms: document.getElementById("offerTerms").value
+            });
+        });
+
+        document.getElementById("execWallet").addEventListener("click", () => makeRequest("/api/wallet/me"));
+        document.getElementById("execReport").addEventListener("click", () => {
+            makeRequest("/api/reports", "POST", {
+                targetType: "deal",
+                targetId: "00000000-0000-0000-0000-000000000000",
+                reason: document.getElementById("reportReason").value
+            });
+        });
+
+        // Full Automated Sequence Runner
+        async function runAutomatedSuite() {
+            const progress = document.getElementById("suiteProgress");
+            progress.textContent = "Executing sequence...";
+            progress.style.color = "var(--accent-amber)";
+
+            const updatePill = (id, pass, dur) => {
+                const pill = document.getElementById(`pill-${id}`);
+                const card = document.getElementById(`test-card-${id}`);
+                const durEl = document.getElementById(`dur-${id}`);
+
+                if (durEl) durEl.textContent = `${dur}ms`;
+                if (pass) {
+                    pill.className = "status-pill pass";
+                    pill.textContent = "PASS";
+                    card.className = "test-card passed";
+                } else {
+                    pill.className = "status-pill fail";
+                    pill.textContent = "FAIL";
+                    card.className = "test-card failed";
+                }
+            };
+
+            const testUserEmail = `ui-test-${Date.now()}@example.com`;
+            const testPass = "TestPassword123!";
+
+            // 1. Reg
+            const r1 = await makeRequest("/api/auth/register", "POST", { email: testUserEmail, password: testPass });
+            updatePill("reg", r1.status === 201, r1.duration);
+
+            // 2. Login
+            const r2 = await makeRequest("/api/auth/login", "POST", { email: testUserEmail, password: testPass });
+            updatePill("login", r2.status === 200, r2.duration);
+
+            // 3. Me
+            const r3 = await makeRequest("/api/auth/me", "GET");
+            updatePill("me", r3.status === 200 && r3.data?.data?.email === testUserEmail, r3.duration);
+
+            // 4. Create Deal
+            const r4 = await makeRequest("/api/deals", "POST", {
+                title: "UI Automated Test Deal",
+                description: "Testing discovery sequence",
+                category: "Equipment",
+                budgetMin: 500,
+                budgetMax: 1000,
+                lat: 28.6304,
+                lng: 77.2177,
+                radiusKm: 10
+            });
+            const dealId = r4.data?.data?.id;
+            updatePill("deal", r4.status === 201 && Boolean(dealId), r4.duration);
+
+            // 5. Discovery 1 (Needs filter check)
+            const r5 = await makeRequest("/api/discovery/nearby?lat=28.6304&lng=77.2177&radiusKm=10");
+            const inNeeds = r5.data?.data?.needs?.some(d => d.id === dealId);
+            updatePill("disc1", r5.status === 200 && inNeeds, r5.duration);
+
+            // 6. Offer (Register user 2 & submit offer)
+            const offererEmail = `ui-offerer-${Date.now()}@example.com`;
+            await makeRequest("/api/auth/register", "POST", { email: offererEmail, password: testPass });
+            const r6 = await makeRequest(`/api/deals/${dealId}/offers`, "POST", { price: 600, terms: "Will deliver" });
+            updatePill("offer", r6.status === 201, r6.duration);
+
+            // 7. Discovery 2 (Offers filter transition check)
+            const r7 = await makeRequest("/api/discovery/nearby?lat=28.6304&lng=77.2177&radiusKm=10");
+            const inOffers = r7.data?.data?.offers?.some(d => d.id === dealId);
+            updatePill("disc2", r7.status === 200 && inOffers, r7.duration);
+
+            // 8. Wallet
+            const r8 = await makeRequest("/api/wallet/me", "GET");
+            updatePill("wallet", r8.status === 200 && Number(r8.data?.data?.balance) >= 1000, r8.duration);
+
+            progress.textContent = "Suite Completed!";
+            progress.style.color = "var(--primary-emerald)";
+        }
+
+        document.getElementById("runAllBtn").addEventListener("click", runAutomatedSuite);
+        document.getElementById("startFullSuiteBtn").addEventListener("click", runAutomatedSuite);
     </script>
-
 </body>
-
 </html>

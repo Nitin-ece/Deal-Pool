@@ -48,14 +48,6 @@ export function Settings() {
     }
   };
 
-  const handleSwitchUser = async (email: string, pass: string = "password123") => {
-    try {
-      await login({ email, password: pass }).unwrap();
-    } catch {
-      // ignore
-    }
-  };
-
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-4">
@@ -193,49 +185,72 @@ export function Settings() {
         )}
       </div>
 
-      {/* Switch Demo Profile Fast Switcher */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E5E5E2] shadow-xs space-y-4">
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-[#10B981]" />
-          <h3 className="font-black text-[#1A1A1A] text-base">Instant Profile Switcher</h3>
-        </div>
-        <p className="text-xs text-gray-500">
-          Switch between seed test profiles to test multi-user deal posting, counter offers, and admin controls.
-        </p>
+      {/* Dev-only: Instant Profile Switcher — tree-shaken from production builds */}
+      {import.meta.env.DEV && (
+        <DevProfileSwitcher login={login} />
+      )}
+    </div>
+  );
+}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => handleSwitchUser("admin@dealpool.com", "admin123")}
-            className="text-left p-3 rounded-2xl bg-gray-50 hover:bg-[#F0FDF4] hover:border-emerald-200 border border-transparent transition-all cursor-pointer"
-          >
-            <div className="flex items-center gap-1.5 font-bold text-xs text-[#1A1A1A]">
-              <span>Admin Profile</span>
-              <span className="text-[9px] bg-emerald-100 text-[#059669] px-1.5 py-0.5 rounded font-bold">
-                Admin
-              </span>
-            </div>
-            <div className="text-[10px] text-gray-400 mt-0.5">admin@dealpool.com</div>
-          </button>
+/**
+ * Dev-only profile switcher. Credentials are for local seed data only.
+ * This component is never included in production bundles due to the
+ * `import.meta.env.DEV` guard above.
+ */
+function DevProfileSwitcher({ login }: { login: ReturnType<typeof useAuth>["login"] }) {
+  const handleSwitchUser = async (email: string, pass: string) => {
+    try {
+      await login({ email, password: pass }).unwrap();
+    } catch {
+      // ignore
+    }
+  };
 
-          <button
-            type="button"
-            onClick={() => handleSwitchUser("riya@community.io", "password123")}
-            className="text-left p-3 rounded-2xl bg-gray-50 hover:bg-[#F0FDF4] hover:border-emerald-200 border border-transparent transition-all cursor-pointer"
-          >
-            <div className="font-bold text-xs text-[#1A1A1A]">Riya (Need Requester)</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">riya@community.io</div>
-          </button>
+  return (
+    <div className="bg-amber-50 rounded-3xl p-6 sm:p-8 border border-amber-200 shadow-xs space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="w-4 h-4 text-amber-600" />
+        <h3 className="font-black text-[#1A1A1A] text-base">
+          DEV ONLY — Profile Switcher
+        </h3>
+      </div>
+      <p className="text-xs text-amber-700">
+        Switch between seed test profiles. This panel is hidden in production builds.
+      </p>
 
-          <button
-            type="button"
-            onClick={() => handleSwitchUser("arjun@community.io", "password123")}
-            className="text-left p-3 rounded-2xl bg-gray-50 hover:bg-[#F0FDF4] hover:border-emerald-200 border border-transparent transition-all cursor-pointer"
-          >
-            <div className="font-bold text-xs text-[#1A1A1A]">Arjun (Equipment & Dev)</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">arjun@community.io</div>
-          </button>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <button
+          type="button"
+          onClick={() => handleSwitchUser("admin@dealpool.com", "admin123")}
+          className="text-left p-3 rounded-2xl bg-white hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer"
+        >
+          <div className="flex items-center gap-1.5 font-bold text-xs text-[#1A1A1A]">
+            <span>Admin Profile</span>
+            <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">
+              Admin
+            </span>
+          </div>
+          <div className="text-[10px] text-gray-400 mt-0.5">admin@dealpool.com</div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSwitchUser("riya@community.io", "password123")}
+          className="text-left p-3 rounded-2xl bg-white hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer"
+        >
+          <div className="font-bold text-xs text-[#1A1A1A]">Riya (Need Requester)</div>
+          <div className="text-[10px] text-gray-400 mt-0.5">riya@community.io</div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSwitchUser("arjun@community.io", "password123")}
+          className="text-left p-3 rounded-2xl bg-white hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer"
+        >
+          <div className="font-bold text-xs text-[#1A1A1A]">Arjun (Equipment & Dev)</div>
+          <div className="text-[10px] text-gray-400 mt-0.5">arjun@community.io</div>
+        </button>
       </div>
     </div>
   );

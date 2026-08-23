@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "../../services/api";
 import { getErrorMessage } from "../../lib/errors";
+import { DEFAULT_RADIUS_KM, DEFAULT_LOCATION } from "../../lib/constants";
 import { Deal, DealCategory, DealStatus } from "../../types";
 
 interface DealsState {
@@ -33,12 +34,12 @@ const initialState: DealsState = {
   searchQuery: "",
   selectedCategory: "All",
   selectedStatus: "all",
-  radiusKm: 8,
+  radiusKm: DEFAULT_RADIUS_KM,
   userLocation: {
-    lat: 28.6304,
-    lng: 77.2177,
-    address: "Connaught Place, New Delhi",
-    cityName: "New Delhi",
+    lat: DEFAULT_LOCATION.lat,
+    lng: DEFAULT_LOCATION.lng,
+    address: DEFAULT_LOCATION.address,
+    cityName: DEFAULT_LOCATION.cityName,
   },
   loading: false,
   actionLoading: false,

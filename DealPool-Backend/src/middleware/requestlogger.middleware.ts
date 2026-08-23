@@ -1,6 +1,5 @@
-// logger is a record of all requests made in a 
-// consize way it contains status code id and routes to know
-//  what routes are running on the server by which ip
+// Request logger middleware — structured log writer.
+// Logs method, URL, status, duration, and client IP to logs/requests.log.
 import { Request, Response, NextFunction } from "express";
 import fs from "fs";
 import path from "path";
@@ -10,16 +9,11 @@ const logFile = path.join(logDir, "requests.log");
 
 fs.mkdirSync(logDir, { recursive: true });
 
-console.log("Request logger initialized");
-console.log("Log file:", logFile);
-
 export const requestLogger = (
     req: Request,
     res: Response,
     next: NextFunction
 ): void => {
-    console.log("REQUEST LOGGER HIT");
-
     const start = Date.now();
 
     res.on("finish", () => {
@@ -34,20 +28,9 @@ export const requestLogger = (
             `IP=${req.ip}`,
         ].join(" ");
 
-        console.log(log);
-
-        try {
-            fs.appendFileSync(
-                logFile,
-                log + "\n",
-                "utf8"
-            );
-        } catch (error) {
-            console.error(
-                "FAILED TO WRITE REQUEST LOG:",
-                error
-            );
-        }
+        fs.promises.appendFile(logFile, log + "\n", "utf8").catch((error) => {
+            console.error("FAILED TO WRITE REQUEST LOG:", error);
+        });
     });
 
     next();

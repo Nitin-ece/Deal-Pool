@@ -21,9 +21,9 @@ export const getNearbyDiscoveryHandler = async (
             deals = [];
         }
 
-        // Separate needs (requests) and offers with approximate privacy jitter and distance
+        // Separate needs (no pending/accepted offers) and offers (have pending/accepted offers)
         const needs = deals
-            .filter((d) => d.category !== "Offer" && d.status === "open")
+            .filter((d) => !d.has_offers)
             .map((d) => {
                 const distanceKm = typeof d.distance_km === "number" 
                     ? Math.round(d.distance_km * 10) / 10 
@@ -44,7 +44,7 @@ export const getNearbyDiscoveryHandler = async (
             });
 
         const offers = deals
-            .filter((d) => d.category === "Offer" || d.status === "in_progress")
+            .filter((d) => d.has_offers)
             .map((d) => {
                 const distanceKm = typeof d.distance_km === "number" 
                     ? Math.round(d.distance_km * 10) / 10 

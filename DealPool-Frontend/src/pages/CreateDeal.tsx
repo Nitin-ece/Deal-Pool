@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/store";
 import { createDeal } from "../redux/slices/dealsSlice";
 import { DealCategory } from "../types";
+import { DEFAULT_RADIUS_KM, DEFAULT_LOCATION } from "../lib/constants";
 import { PlacesAutocomplete } from "../components/map/PlacesAutocomplete";
 import { LocationPermissionGate } from "../components/map/LocationPermissionGate";
 import { useAuth } from "../hooks/useAuth";
@@ -76,11 +77,11 @@ export function CreateDeal() {
   const [imageUrl, setImageUrl] = useState(PRESET_ITEM_IMAGES[0].url);
   const [budgetMin, setBudgetMin] = useState<number | string>(500);
   const [budgetMax, setBudgetMax] = useState<number | string>(800);
-  const [radiusKm, setRadiusKm] = useState<number>(6);
+  const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
   const [locationData, setLocationData] = useState({
-    address: userLocation.address || "Connaught Place, New Delhi",
-    lat: userLocation.lat || 28.6304,
-    lng: userLocation.lng || 77.2177,
+    address: userLocation.address || DEFAULT_LOCATION.address,
+    lat: userLocation.lat || DEFAULT_LOCATION.lat,
+    lng: userLocation.lng || DEFAULT_LOCATION.lng,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
