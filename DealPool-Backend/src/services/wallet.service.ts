@@ -21,7 +21,17 @@ export const getOrCreateWallet = async (
 ): Promise<Wallet> => {
     let wallet = await findWalletByUserId(userId, false, client);
     if (!wallet) {
-        wallet = await insertWallet(userId, 0, client);
+        wallet = await insertWallet(userId, 1000, client);
+        await insertLedgerEntry(
+            {
+                userId,
+                toWalletId: wallet.id,
+                amount: 1000,
+                entryType: "deposit",
+                description: "Initial signup coin bonus (₹1000)",
+            },
+            client
+        );
     }
     return wallet;
 };

@@ -19,6 +19,7 @@ import { setSearchQuery, setRadiusKm } from "../../redux/slices/dealsSlice";
 import { BrandMark } from "../common/BrandMark";
 import { cn } from "../../lib/cn";
 import api from "../../services/api";
+import { WalletModal } from "../wallet/WalletModal";
 import type { WalletSummary } from "../../types/contracts";
 
 export function Header() {
@@ -32,6 +33,7 @@ export function Header() {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showRadiusDropdown, setShowRadiusDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -179,17 +181,18 @@ export function Header() {
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {user && wallet && (
-            <Link
-              to="/contracts"
-              className="hidden items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-white sm:inline-flex"
-              title="Wallet balance"
+            <button
+              type="button"
+              onClick={() => setShowWalletModal(true)}
+              className="hidden items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-white sm:inline-flex cursor-pointer"
+              title="Click to view wallet & deposit coins"
             >
               <Coins className="h-3.5 w-3.5 text-[var(--signal)]" />
-              <span>{Math.round(wallet.balance)}</span>
-              {wallet.locked_balance > 0 && (
-                <span className="text-[var(--muted)]">· {Math.round(wallet.locked_balance)} locked</span>
+              <span>₹{Math.round(Number(wallet.balance ?? 0))}</span>
+              {Number(wallet.locked_balance ?? 0) > 0 && (
+                <span className="text-[var(--muted)]">· {Math.round(Number(wallet.locked_balance))} locked</span>
               )}
-            </Link>
+            </button>
           )}
           <Link
             to="/deals/new"
@@ -237,6 +240,17 @@ export function Header() {
                       </span>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenus();
+                      setShowWalletModal(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)] text-left cursor-pointer"
+                  >
+                    <Coins className="h-3.5 w-3.5 text-[var(--signal)]" />
+                    My Wallet & Coins
+                  </button>
                   <Link
                     to="/contracts"
                     onClick={closeMenus}
@@ -301,6 +315,11 @@ export function Header() {
           )}
         </div>
       </div>
+      <WalletModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onWalletUpdated={setWallet}
+      />
     </header>
   );
 }

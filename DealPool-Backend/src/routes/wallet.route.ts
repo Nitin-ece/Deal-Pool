@@ -12,6 +12,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/", getWalletHandler);
+router.get("/me", getWalletHandler);
 router.post("/deposit", depositFundsHandler);
 router.get("/ledger", getLedgerHandler);
 router.get("/debts", getDebtsHandler);
