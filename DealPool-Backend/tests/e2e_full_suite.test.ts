@@ -64,7 +64,7 @@ const getCookie = (cookies: string[], name: string): string => {
 };
 
 console.log("\n========================================================");
-console.log("   MAKERPOOL BACKEND (v2.1) — FULL E2E INTEGRATION SUITE");
+console.log("   DEALPOOL BACKEND (v2.1) — FULL E2E INTEGRATION SUITE");
 console.log("========================================================\n");
 
 try {

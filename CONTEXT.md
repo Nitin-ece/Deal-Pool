@@ -1,4 +1,4 @@
-# MakerPool — Working Context
+# DealPool — Working Context
 
 > Living document. Updated for PRD v2.2 stabilization + frontend contracts UX.
 > Last updated: 2026-08-20
@@ -7,9 +7,9 @@
 
 ## Goal
 
-1. Stabilize MakerPool backend per PRD v2.2 (correctness + security).
-2. Keep frontend API-aligned with contracts / wallet / QR handoff.
-3. Production-ready UX: Landing, Contracts, nav consistency (MakerPool brand).
+1. Stabilize DealPool backend per PRD v2.2 (correctness + security).
+2. Clean separation: Frontend (Vite/React) in `DealPool-Frontend/`, Backend (Express/TS/PostgreSQL) in `DealPool-Backend/`.
+3. Production-ready UX: Landing, Contracts, nav consistency (DealPool brand).
 
 ---
 

@@ -1,6 +1,6 @@
-# MakerPool Backend — Coin Economy & Resource Sharing Platform (PRD v2.2)
+# DealPool Backend — Coin Economy & Resource Sharing Platform (PRD v2.2)
 
-MakerPool is a closed-loop coin economy and physical resource-sharing backend built with Express 5, TypeScript, PostgreSQL (PostGIS), Firebase Auth, and cryptographic transaction chaining.
+DealPool is a closed-loop coin economy and physical resource-sharing backend built with Express 5, TypeScript, PostgreSQL (PostGIS), Firebase Auth, and cryptographic transaction chaining.
 
 Makers exchange physical equipment, tools, and hardware through a trust-minimized workflow backed by an append-only double-entry ledger, escrow protection, dynamic deposit tiers, 24h dispute windows, and automated deadline settlement.
 
@@ -8,7 +8,7 @@ Makers exchange physical equipment, tools, and hardware through a trust-minimize
 
 ## 1. Core Principles & Economics (v2.1)
 
-- **Closed-Loop Coins**: All platform actions use native MakerPool coins (seeded with 1,000 coins on registration).
+- **Closed-Loop Coins**: All platform actions use native DealPool coins (seeded with 1,000 coins on registration).
 - **Append-Only Ledger**: All balance changes are immutably recorded in `ledger_entries`. `wallets.balance` and `wallets.locked_balance` act as cached balances, mutated strictly within atomic ledger service operations.
 - **Escrow Integrity**: Escrow is contract-bound (`escrow_lock`, `escrow_release_*`, `escrow_penalty`). The system guarantees `SUM(lock) - SUM(release + penalty) >= release_amount` before any payout.
 - **Dynamic Deposit Tiers**:

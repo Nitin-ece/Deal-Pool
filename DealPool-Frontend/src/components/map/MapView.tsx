@@ -151,7 +151,7 @@ export function MapView({
         {/* Radar Center Gradient */}
         <circle cx="500" cy="500" r="380" fill="url(#radarGlow)" />
 
-        {/* Concentric Distance Rings matching MakerPool visual reference */}
+        {/* Concentric Distance Rings matching DealPool visual reference */}
         <circle
           cx="500"
           cy="500"

@@ -456,7 +456,7 @@ export function Contracts() {
             My Contracts
           </h1>
           <p className="mt-1 max-w-md text-sm text-[var(--muted)]">
-            Two-sided confirm, QR pickup/return, and escrow release — matched to the MakerPool API.
+            Two-sided confirm, QR pickup/return, and escrow release — matched to the DealPool API.
           </p>
         </div>
         <button

@@ -5,7 +5,7 @@ A Hyperlocal Resource, Skill & Service Exchange Network.
 ## Project Structure
 
 ```
-Deadpool/
+DealPool/
 ├── DealPool-Backend/   # Express + TypeScript + PostgreSQL / Supabase + Firebase Auth
 ├── DealPool-Frontend/  # React 19 + TypeScript + Vite + TailwindCSS + Redux Toolkit
 ├── CONTEXT.md          # Architecture, schema, and API documentation

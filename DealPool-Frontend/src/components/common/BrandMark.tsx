@@ -47,7 +47,7 @@ export function BrandMark({
             inverted ? "text-white" : "text-[var(--ink)]"
           )}
         >
-          MakerPool
+          DealPool
         </span>
       )}
     </span>

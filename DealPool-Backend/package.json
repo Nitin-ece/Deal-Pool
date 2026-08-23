@@ -2,13 +2,13 @@
   "name": "dealpool-backend",
   "version": "1.0.0",
   "description": " A Local Resource, Skill & Service Exchange Network",
-  "homepage": "https://github.com/Nikhil31102007/MakerPool-Backend#readme",
+  "homepage": "https://github.com/Nitin-ece/deadpool#readme",
   "bugs": {
-    "url": "https://github.com/Nikhil31102007/MakerPool-Backend/issues"
+    "url": "https://github.com/Nitin-ece/deadpool/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Nikhil31102007/MakerPool-Backend.git"
+    "url": "git+https://github.com/Nitin-ece/deadpool.git"
   },
   "license": "ISC",
   "author": "Nikhil Mishra",
