@@ -45,8 +45,8 @@ export function OfferCard({
       id={`offer-card-${offer.id}`}
       className={`p-5 rounded-2xl border transition-all ${
         isAccepted
-          ? "bg-[#F0FDF4] border-[#10B981] ring-2 ring-[#10B981]/20"
-          : "bg-white border-[#E5E5E2] shadow-xs hover:border-gray-300"
+          ? "bg-emerald-500/10 border-emerald-500/40 ring-2 ring-emerald-500/20"
+          : "bg-[var(--surface)] border-[var(--line)] shadow-xs hover:border-[var(--signal)]/40"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -57,27 +57,27 @@ export function OfferCard({
               src={offer.provider.profile_photo}
               alt={offer.provider.username || "Provider"}
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-full object-cover border border-[#E5E5E2]"
+              className="w-10 h-10 rounded-full object-cover border border-[var(--line)]"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-[#F0FDF4] text-[#059669] flex items-center justify-center font-bold text-sm border border-[#E5E5E2]">
+            <div className="w-10 h-10 rounded-full bg-[var(--signal)]/10 text-[var(--signal)] flex items-center justify-center font-bold text-sm border border-[var(--line)]">
               <User className="w-5 h-5" />
             </div>
           )}
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[#1A1A1A] text-sm">
+              <span className="font-bold text-[var(--ink)] text-sm">
                 {offer.provider?.username || "Community Provider"}
               </span>
               {offer.provider?.avg_rating && (
-                <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md font-semibold">
+                <div className="flex items-center gap-1 text-xs text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md font-semibold">
                   <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
                   <span>{offer.provider.avg_rating.toFixed(1)}</span>
-                  <span className="text-gray-400 font-normal">({offer.provider.rating_count || 0})</span>
+                  <span className="text-[var(--muted)] font-normal">({offer.provider.rating_count || 0})</span>
                 </div>
               )}
             </div>
-            <div className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
+            <div className="text-[11px] text-[var(--muted)] flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
               <span>Offered {formatTimeAgo(offer.created_at)}</span>
             </div>
@@ -86,7 +86,7 @@ export function OfferCard({
 
         {/* Offered Price */}
         <div className="text-right">
-          <div className="text-base font-black text-[#10B981]">₹{offer.price}</div>
+          <div className="text-base font-black text-[var(--signal)]">₹{offer.price}</div>
           <div className="mt-1">
             <StatusBadge status={offer.status} />
           </div>
@@ -94,13 +94,13 @@ export function OfferCard({
       </div>
 
       {/* Terms */}
-      <div className="mt-3 text-xs text-gray-700 bg-gray-50 p-3.5 rounded-xl border border-gray-100 leading-relaxed">
+      <div className="mt-3 text-xs text-[var(--ink)] bg-[var(--paper)] p-3.5 rounded-xl border border-[var(--line)] leading-relaxed">
         {offer.terms}
       </div>
 
       {/* Action buttons */}
       {isPending && (
-        <div className="mt-3.5 pt-3 border-t border-[#E5E5E2] flex items-center justify-end gap-2">
+        <div className="mt-3.5 pt-3 border-t border-[var(--line)] flex items-center justify-end gap-2">
           {/* Owner can accept or reject */}
           {isDealOwner && (
             <>
@@ -109,7 +109,7 @@ export function OfferCard({
                 id={`reject-offer-${offer.id}`}
                 disabled={isActionLoading}
                 onClick={() => onReject && onReject(offer.id)}
-                className="px-3.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Decline</span>
@@ -119,7 +119,7 @@ export function OfferCard({
                 id={`accept-offer-${offer.id}`}
                 disabled={isActionLoading}
                 onClick={() => onAccept && onAccept(offer.id)}
-                className="px-4 py-1.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
                 <span>Accept Offer</span>
@@ -134,7 +134,7 @@ export function OfferCard({
               id={`withdraw-offer-${offer.id}`}
               disabled={isActionLoading}
               onClick={() => onWithdraw && onWithdraw(offer.id)}
-              className="px-3.5 py-1.5 rounded-xl border border-[#E5E5E2] text-gray-600 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-1.5 rounded-xl border border-[var(--line)] text-[var(--muted)] hover:bg-[var(--line)]/40 hover:text-[var(--ink)] text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Undo2 className="w-3.5 h-3.5" />
               <span>Withdraw Offer</span>

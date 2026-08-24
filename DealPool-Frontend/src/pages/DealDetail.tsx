@@ -8,6 +8,7 @@ import { MakeOfferForm } from "../components/offers/MakeOfferForm";
 import { OfferCard } from "../components/offers/OfferCard";
 import { CategoryBadge } from "../components/common/CategoryBadge";
 import { StatusBadge } from "../components/common/StatusBadge";
+import { WalletModal } from "../components/wallet/WalletModal";
 import {
   ArrowLeft,
   MapPin,
@@ -20,6 +21,7 @@ import {
   Star,
   Trash2,
   CheckCircle,
+  CheckCircle2,
   AlertCircle,
   Sparkles,
   Radio,
@@ -27,6 +29,8 @@ import {
   Send,
   Eye,
   Check,
+  Coins,
+  FileText,
 } from "lucide-react";
 
 import { DEFAULT_CATEGORY_IMAGES } from "../lib/categoryImages";
@@ -43,6 +47,10 @@ export function DealDetail() {
 
   const [copied, setCopied] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [acceptSuccess, setAcceptSuccess] = useState<string | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [neededCoins, setNeededCoins] = useState<number>(500);
 
   useEffect(() => {
     if (id) {
@@ -89,8 +97,25 @@ export function DealDetail() {
   const imageUrl = currentDeal.image_url || DEFAULT_CATEGORY_IMAGES[currentDeal.category] || DEFAULT_CATEGORY_IMAGES["Other"];
 
   const handleAccept = async (offerId: string) => {
-    await dispatch(acceptOffer(offerId));
-    if (id) dispatch(fetchDealById(id));
+    setAcceptError(null);
+    setAcceptSuccess(null);
+    try {
+      await dispatch(acceptOffer(offerId)).unwrap();
+      setAcceptSuccess("Offer accepted! Escrow has been locked and a contract is now active.");
+      if (id) {
+        dispatch(fetchDealById(id));
+        dispatch(fetchOffersForDeal(id));
+      }
+    } catch (err: any) {
+      const errMsg = typeof err === "string" ? err : err?.message || "Failed to accept offer.";
+      setAcceptError(errMsg);
+      if (errMsg.toLowerCase().includes("insufficient") || errMsg.toLowerCase().includes("balance")) {
+        const match = errMsg.match(/Required:\s*₹?([0-9.]+)/i);
+        if (match && match[1]) {
+          setNeededCoins(Math.ceil(Number(match[1])));
+        }
+      }
+    }
   };
 
   const handleReject = async (offerId: string) => {
@@ -176,9 +201,9 @@ export function DealDetail() {
       )}
 
       {/* Hero Visual Item Card */}
-      <div className="bg-white rounded-3xl overflow-hidden border border-[#E5E5E2] shadow-sm">
+      <div className="bg-[var(--surface)] rounded-3xl overflow-hidden border border-[var(--line)] shadow-xs">
         {/* Full-width Product/Item Photography Banner */}
-        <div className="relative h-64 sm:h-80 lg:h-96 w-full overflow-hidden bg-gray-900">
+        <div className="relative h-64 sm:h-80 lg:h-96 w-full overflow-hidden bg-[var(--paper)]">
           <img
             src={imageUrl}
             alt={currentDeal.title}
@@ -203,7 +228,7 @@ export function DealDetail() {
             <div className="space-y-1.5 max-w-2xl">
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
                 <MapPin className="w-3.5 h-3.5" />
-                <span>{currentDeal.address || "Connaught Place, Central Delhi"}</span>
+                <span>{currentDeal.address || "Local Neighborhood Area"}</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white drop-shadow-md leading-tight">
                 {currentDeal.title}
@@ -225,10 +250,10 @@ export function DealDetail() {
         {/* Content Body */}
         <div className="p-6 sm:p-8 space-y-6">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-2">
               Need Description & Specifications
             </h3>
-            <p className="text-sm sm:text-base text-gray-800 leading-relaxed whitespace-pre-line font-medium">
+            <p className="text-sm sm:text-base text-[var(--ink)] leading-relaxed whitespace-pre-line font-medium">
               {currentDeal.description}
             </p>
           </div>
@@ -237,14 +262,14 @@ export function DealDetail() {
           <div
             className={`p-4 rounded-2xl border flex items-start gap-3.5 ${
               isParticipant
-                ? "bg-[#F0FDF4] border-[#10B981]/40 text-[#065F46]"
-                : "bg-amber-50/70 border-amber-200 text-amber-900"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-500"
             }`}
           >
             {isParticipant ? (
-              <ShieldCheck className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" />
+              <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
             ) : (
-              <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <Shield className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
             )}
             <div className="text-xs space-y-1">
               <div className="font-bold text-sm">
@@ -252,7 +277,7 @@ export function DealDetail() {
               </div>
               <div className="leading-relaxed opacity-90">
                 {isParticipant
-                  ? `Exact Meeting Point: ${currentDeal.address || "Connaught Place, Block B, New Delhi"} (Coordinates: ${currentDeal.lat.toFixed(4)}, ${currentDeal.lng.toFixed(4)})`
+                  ? `Exact Meeting Point: ${currentDeal.address || "Local Neighborhood Exchange Point"} (Coordinates: ${Number(currentDeal.lat || 0).toFixed(4)}, ${Number(currentDeal.lng || 0).toFixed(4)})`
                   : "Exact coordinates and address are protected. Complete contact & meeting address are released once an offer is accepted by the need requester."}
               </div>
             </div>
@@ -260,15 +285,16 @@ export function DealDetail() {
 
           {/* Owner Controls: Mark Completed */}
           {isOwner && currentDeal.status === "offer_accepted" && (
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs text-[#065F46] font-semibold">
+            <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-emerald-500 font-semibold">
                 You accepted an offer for this need. When the equipment exchange or task is finished, mark it complete.
               </div>
               <button
+                id="mark-deal-complete-btn"
                 onClick={handleMarkCompleted}
-                className="px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer shadow-xs"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer"
               >
-                Mark Completed
+                Mark as Completed
               </button>
             </div>
           )}
@@ -279,8 +305,8 @@ export function DealDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Creator Information & Trust Rating */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-[#E5E5E2] shadow-xs space-y-4">
-            <div className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+          <div className="bg-[var(--surface)] rounded-3xl p-6 border border-[var(--line)] shadow-xs space-y-4">
+            <div className="text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">
               Need Requester
             </div>
 
@@ -290,37 +316,37 @@ export function DealDetail() {
                   src={currentDeal.creator.profile_photo}
                   alt={currentDeal.creator.username}
                   referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-full object-cover border border-[#E5E5E2]"
+                  className="w-12 h-12 rounded-full object-cover border border-[var(--line)]"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-[#F0FDF4] text-[#059669] font-black text-sm flex items-center justify-center border border-[#E5E5E2]">
+                <div className="w-12 h-12 rounded-full bg-[var(--signal)]/10 text-[var(--signal)] font-black text-sm flex items-center justify-center border border-[var(--line)]">
                   <User className="w-6 h-6" />
                 </div>
               )}
 
               <div>
-                <div className="font-bold text-[#1A1A1A] text-sm">
+                <div className="font-bold text-[var(--ink)] text-sm">
                   {currentDeal.creator?.username || "Community Member"}
                 </div>
-                <div className="text-[11px] text-[#059669] font-bold">
+                <div className="text-[11px] text-[var(--signal)] font-bold">
                   Verified Neighbor
                 </div>
               </div>
             </div>
 
             {/* Reputation Rating */}
-            <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-600">Reputation</span>
-              <div className="flex items-center gap-1 text-xs text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+            <div className="p-3 bg-[var(--paper)] rounded-2xl border border-[var(--line)] flex items-center justify-between">
+              <span className="text-xs font-bold text-[var(--muted)]">Reputation</span>
+              <div className="flex items-center gap-1 text-xs text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                <span>{currentDeal.creator?.avg_rating?.toFixed(1) || "5.0"}</span>
-                <span className="text-gray-400 font-normal">
-                  ({currentDeal.creator?.rating_count || 12} reviews)
+                <span>{currentDeal.creator?.avg_rating != null ? Number(currentDeal.creator.avg_rating).toFixed(1) : "New"}</span>
+                <span className="text-[var(--muted)] font-normal">
+                  ({currentDeal.creator?.rating_count ?? 0} reviews)
                 </span>
               </div>
             </div>
 
-            <div className="text-xs text-gray-500 leading-relaxed">
+            <div className="text-xs text-[var(--muted)] leading-relaxed">
               DealPool's reputation and rating system guarantees safe and dependable neighbor interactions.
             </div>
           </div>
@@ -344,16 +370,16 @@ export function DealDetail() {
                   }}
                 />
               ) : (
-                <div className="bg-white rounded-3xl p-6 border border-[#E5E5E2] text-center space-y-3 shadow-xs">
-                  <h3 className="font-bold text-sm text-[#1A1A1A]">
+                <div className="bg-[var(--surface)] rounded-3xl p-6 border border-[var(--line)] text-center space-y-3 shadow-xs">
+                  <h3 className="font-bold text-sm text-[var(--ink)]">
                     Can you provide this resource or skill?
                   </h3>
-                  <p className="text-xs text-gray-500 font-normal">
+                  <p className="text-xs text-[var(--muted)] font-normal">
                     Sign in to submit your price proposal and terms directly to the requester.
                   </p>
                   <Link
                     to="/login"
-                    className="inline-block px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
+                    className="inline-block px-5 py-2.5 bg-[var(--signal)] hover:bg-[var(--signal-deep)] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
                   >
                     Sign In to Make an Offer
                   </Link>
@@ -362,26 +388,63 @@ export function DealDetail() {
             </div>
           )}
 
+          {/* Accept Error Banner with Direct Top Up Shortcut */}
+          {acceptError && (
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-500 space-y-3 animate-in fade-in">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="font-semibold">{acceptError}</span>
+              </div>
+              {(acceptError.toLowerCase().includes("insufficient") || acceptError.toLowerCase().includes("balance")) && (
+                <button
+                  type="button"
+                  onClick={() => setShowWalletModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition cursor-pointer shadow-xs"
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>Top Up Wallet (₹{neededCoins})</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Accept Success Banner */}
+          {acceptSuccess && (
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-500 space-y-2 animate-in fade-in">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="font-semibold">{acceptSuccess}</span>
+              </div>
+              <Link
+                to="/contracts"
+                className="inline-flex items-center gap-1.5 text-xs font-bold underline hover:text-emerald-400"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Go to Contracts & Escrow &rarr;</span>
+              </Link>
+            </div>
+          )}
+
           {/* Submitted Offers List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#10B981]" />
-                <h3 className="font-black text-[#1A1A1A] text-base">
+                <Sparkles className="w-4 h-4 text-[var(--signal)]" />
+                <h3 className="font-black text-[var(--ink)] text-base">
                   Community Proposals & Offers ({offers.length})
                 </h3>
               </div>
               {hasAcceptedOffer && (
-                <span className="text-xs font-bold text-[#059669] bg-[#F0FDF4] px-2.5 py-1 rounded-lg border border-emerald-100">
+                <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
                   Deal Matched
                 </span>
               )}
             </div>
 
             {offers.length === 0 ? (
-              <div className="bg-white rounded-3xl p-8 border border-[#E5E5E2] text-center space-y-2 shadow-xs">
-                <p className="text-xs font-bold text-gray-700">No offers submitted yet.</p>
-                <p className="text-xs text-gray-500 font-normal">
+              <div className="bg-[var(--surface)] rounded-3xl p-8 border border-[var(--line)] text-center space-y-2 shadow-xs">
+                <p className="text-xs font-bold text-[var(--ink)]">No offers submitted yet.</p>
+                <p className="text-xs text-[var(--muted)] font-normal">
                   {isOwner
                     ? "Nearby neighbors within your radar have been alerted. Check back soon!"
                     : "Be the first neighbor to submit terms for this need."}
@@ -406,6 +469,12 @@ export function DealDetail() {
           </div>
         </div>
       </div>
+
+      <WalletModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        initialDepositAmount={neededCoins}
+      />
     </div>
   );
 }

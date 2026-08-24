@@ -117,7 +117,7 @@ export function LocationPermissionGate({
               lat={lat}
               lng={lng}
               onChange={handleManualLocationSelect}
-              placeholder="Type your area, street, or landmark (e.g. Indiranagar, Connaught Place)..."
+              placeholder="Search your area, neighborhood, street, or landmark..."
             />
           </div>
 

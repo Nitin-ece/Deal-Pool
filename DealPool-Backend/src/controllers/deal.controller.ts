@@ -67,11 +67,12 @@ export const listNearbyDealsHandler = async (
     try {
         const lat = Number(req.query.lat);
         const lng = Number(req.query.lng);
-        const radiusKm = Number(req.query.radiusKm);
+        const radiusKm = Number(req.query.radiusKm) || 10;
         const limit = Number(req.query.limit) || 50;
         const offset = Number(req.query.offset) || 0;
+        const category = req.query.category as string | undefined;
 
-        const deals = await listNearbyDeals(lat, lng, radiusKm, limit, offset);
+        const deals = await listNearbyDeals(lat, lng, radiusKm, limit, offset, category);
 
         const response: ApiResponse<typeof deals> = {
             success: true,

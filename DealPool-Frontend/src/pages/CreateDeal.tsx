@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/store";
 import { createDeal } from "../redux/slices/dealsSlice";
@@ -79,10 +79,20 @@ export function CreateDeal() {
   const [budgetMax, setBudgetMax] = useState<number | string>(800);
   const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
   const [locationData, setLocationData] = useState({
-    address: userLocation.address || DEFAULT_LOCATION.address,
-    lat: userLocation.lat || DEFAULT_LOCATION.lat,
-    lng: userLocation.lng || DEFAULT_LOCATION.lng,
+    address: userLocation.address || "",
+    lat: userLocation.lat || 0,
+    lng: userLocation.lng || 0,
   });
+
+  useEffect(() => {
+    if (userLocation.lat && userLocation.lng) {
+      setLocationData({
+        address: userLocation.address || "Your Current Location",
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+      });
+    }
+  }, [userLocation.lat, userLocation.lng, userLocation.address]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,7 +241,7 @@ export function CreateDeal() {
             </div>
 
             <div className="sm:col-span-8 space-y-3">
-              <div className="text-xs text-gray-600 font-medium">
+              <div className="text-xs text-[var(--muted)] font-medium">
                 Choose a preset visual matching your need or provide a custom image link:
               </div>
 
@@ -244,8 +254,8 @@ export function CreateDeal() {
                     onClick={() => setImageUrl(preset.url)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                       imageUrl === preset.url
-                        ? "bg-[#10B981] text-white border-[#10B981] shadow-xs"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                        ? "bg-[var(--signal)] text-white border-[var(--signal)] shadow-xs"
+                        : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] hover:bg-[var(--surface)]"
                     }`}
                   >
                     {preset.label}
@@ -258,16 +268,16 @@ export function CreateDeal() {
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="Or paste an image URL (https://...)"
-                className="w-full px-3.5 py-2 bg-gray-50 rounded-xl text-xs text-[#1A1A1A] border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all font-medium"
+                className="w-full px-3.5 py-2 bg-[var(--paper)] rounded-xl text-xs text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all font-medium placeholder:text-[var(--muted)]"
               />
             </div>
           </div>
         </div>
 
         {/* Section 3: Need Title & Description */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E5E5E2] shadow-xs space-y-5">
+        <div className="bg-[var(--surface)] rounded-3xl p-6 sm:p-8 border border-[var(--line)] shadow-xs space-y-5">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-2">
               3. Need Title & Specifications
             </label>
             <input
@@ -275,16 +285,16 @@ export function CreateDeal() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Need a 4K Projector + screen for Friday community screening"
-              className={`w-full px-4 py-3 bg-gray-50 rounded-xl text-sm font-semibold text-[#1A1A1A] border ${
-                errors.title ? "border-rose-400 focus:ring-rose-200" : "border-[#E5E5E2] focus:border-[#10B981]"
-              } focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all`}
+              placeholder="What equipment, skill, or resource do you need?"
+              className={`w-full px-4 py-3 bg-[var(--paper)] rounded-xl text-sm font-semibold text-[var(--ink)] border ${
+                errors.title ? "border-rose-400 focus:ring-rose-200" : "border-[var(--line)] focus:border-[var(--signal)]"
+              } focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all placeholder:text-[var(--muted)]`}
             />
             {errors.title && <p className="text-xs text-rose-500 mt-1 font-medium">{errors.title}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1.5">
+            <label className="block text-xs font-bold text-[var(--ink)] mb-1.5">
               Detailed Description & Terms
             </label>
             <textarea
@@ -293,11 +303,11 @@ export function CreateDeal() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Specify requirements, timing, exact model specs, duration needed, and handover preferences..."
-              className={`w-full p-4 bg-gray-50 rounded-xl text-sm text-[#1A1A1A] border ${
+              className={`w-full p-4 bg-[var(--paper)] rounded-xl text-sm text-[var(--ink)] border ${
                 errors.description
                   ? "border-rose-400 focus:ring-rose-200"
-                  : "border-[#E5E5E2] focus:border-[#10B981]"
-              } focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all leading-relaxed`}
+                  : "border-[var(--line)] focus:border-[var(--signal)]"
+              } focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all leading-relaxed placeholder:text-[var(--muted)]`}
             />
             {errors.description && (
               <p className="text-xs text-rose-500 mt-1 font-medium">{errors.description}</p>
@@ -306,14 +316,14 @@ export function CreateDeal() {
 
           {/* Budget Range */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-2">
+            <label className="block text-xs font-bold text-[var(--ink)] mb-2">
               Expected Budget Range (₹)
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <span className="text-[11px] text-gray-400 font-medium block mb-1">Minimum Budget</span>
+                <span className="text-[11px] text-[var(--muted)] font-medium block mb-1">Minimum Budget</span>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-sm">
                     ₹
                   </span>
                   <input
@@ -322,16 +332,16 @@ export function CreateDeal() {
                     min="0"
                     value={budgetMin}
                     onChange={(e) => setBudgetMin(e.target.value)}
-                    placeholder="400"
-                    className="w-full pl-8 pr-4 py-2.5 bg-gray-50 rounded-xl text-sm font-semibold text-[#1A1A1A] border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all"
+                    placeholder="Min ₹"
+                    className="w-full pl-8 pr-4 py-2.5 bg-[var(--paper)] rounded-xl text-sm font-semibold text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all placeholder:text-[var(--muted)]"
                   />
                 </div>
               </div>
 
               <div>
-                <span className="text-[11px] text-gray-400 font-medium block mb-1">Maximum Budget</span>
+                <span className="text-[11px] text-[var(--muted)] font-medium block mb-1">Maximum Budget</span>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-sm">
                     ₹
                   </span>
                   <input
@@ -340,8 +350,8 @@ export function CreateDeal() {
                     min="0"
                     value={budgetMax}
                     onChange={(e) => setBudgetMax(e.target.value)}
-                    placeholder="800"
-                    className="w-full pl-8 pr-4 py-2.5 bg-gray-50 rounded-xl text-sm font-semibold text-[#1A1A1A] border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all"
+                    placeholder="Max ₹"
+                    className="w-full pl-8 pr-4 py-2.5 bg-[var(--paper)] rounded-xl text-sm font-semibold text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all placeholder:text-[var(--muted)]"
                   />
                 </div>
               </div>
@@ -351,8 +361,8 @@ export function CreateDeal() {
         </div>
 
         {/* Section 4: Location & Discovery Radius */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E5E5E2] shadow-xs space-y-6">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">
+        <div className="bg-[var(--surface)] rounded-3xl p-6 sm:p-8 border border-[var(--line)] shadow-xs space-y-6">
+          <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
             4. Location & Discovery Radius
           </label>
 
@@ -366,8 +376,8 @@ export function CreateDeal() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-700">Broadcast Range</span>
-              <span className="text-xs font-black text-[#059669] bg-[#F0FDF4] px-2.5 py-0.5 rounded-lg border border-emerald-100">
+              <span className="text-xs font-bold text-[var(--ink)]">Broadcast Range</span>
+              <span className="text-xs font-black text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
                 {radiusKm} km
               </span>
             </div>
@@ -379,9 +389,9 @@ export function CreateDeal() {
               step="1"
               value={radiusKm}
               onChange={(e) => setRadiusKm(Number(e.target.value))}
-              className="w-full accent-[#10B981] cursor-pointer"
+              className="w-full accent-[var(--signal)] cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-semibold">
+            <div className="flex justify-between text-[10px] text-[var(--muted)] mt-1 font-semibold">
               <span>1 km (Hyperlocal)</span>
               <span>8 km (District sector)</span>
               <span>25 km (Metropolitan)</span>
@@ -394,7 +404,7 @@ export function CreateDeal() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-5 py-3 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="px-5 py-3 rounded-xl text-xs font-bold text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -402,7 +412,7 @@ export function CreateDeal() {
             id="publish-deal-btn"
             type="submit"
             disabled={isSubmitting}
-            className="px-8 py-3.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-sm font-bold shadow-md shadow-emerald-100 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="px-8 py-3.5 rounded-xl bg-[var(--signal)] hover:bg-[var(--signal-deep)] text-white text-sm font-bold shadow-md shadow-orange-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
             <span>{isSubmitting ? "Broadcasting Need..." : "Publish to Community Radar"}</span>

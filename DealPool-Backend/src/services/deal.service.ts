@@ -7,6 +7,8 @@ import {
     deleteDeal,
     Deal,
 } from "../models/deal.model";
+import { insertResource } from "../models/resource.model";
+import { computeDefaultDepositRate } from "./resource.service";
 import { badRequest, notFound, forbidden } from "../utils/errors";
 import { checkUserHasDebt } from "./wallet.service";
 
@@ -35,6 +37,23 @@ export const createDeal = async (
         throw badRequest("title, lat, and lng are required", "MISSING_FIELDS");
     }
 
+    let resourceId = input.resourceId ?? null;
+    if (!resourceId) {
+        const declaredVal = Math.max(Number(input.budgetMax || input.budgetMin || 1000), 100);
+        const resource = await insertResource({
+            ownerId: userId,
+            title: input.title,
+            description: input.description ?? null,
+            category: input.category ?? null,
+            condition: "Good",
+            declaredValue: declaredVal,
+            securityDepositRate: computeDefaultDepositRate(declaredVal),
+            lat: input.lat,
+            lng: input.lng,
+        });
+        resourceId = resource.id;
+    }
+
     return insertDeal({
         userId,
         title: input.title,
@@ -45,7 +64,7 @@ export const createDeal = async (
         lat: input.lat,
         lng: input.lng,
         radiusKm: input.radiusKm ?? 10,
-        resourceId: input.resourceId ?? null,
+        resourceId,
     });
 };
 
@@ -72,13 +91,14 @@ export const listNearbyDeals = async (
     lng: number,
     radiusKm: number,
     limit = 50,
-    offset = 0
+    offset = 0,
+    category?: string
 ) => {
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
         throw badRequest("lat and lng are required", "MISSING_COORDINATES");
     }
 
-    return findNearbyDeals(lat, lng, radiusKm || 10, limit, offset);
+    return findNearbyDeals(lat, lng, radiusKm || 10, limit, offset, category);
 };
 
 const UPDATABLE_DEAL_FIELDS = [

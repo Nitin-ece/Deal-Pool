@@ -109,7 +109,7 @@ export function DealsMap() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl border border-[var(--line)] bg-white p-4"
+            className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs"
           >
             <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
               {stat.label}
@@ -121,15 +121,15 @@ export function DealsMap() {
         ))}
         <Link
           to="/deals/new"
-          className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-white p-4 transition hover:border-[var(--ink)]"
+          className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition hover:border-[var(--signal)] shadow-xs"
         >
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
               Need something?
             </p>
-            <p className="mt-1 text-xs font-bold text-[var(--pool)]">Broadcast to area</p>
+            <p className="mt-1 text-xs font-bold text-[var(--signal)]">Broadcast to area &rarr;</p>
           </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--signal)] text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--signal)] text-white shadow-xs">
             <Plus className="h-5 w-5" />
           </span>
         </Link>
@@ -149,7 +149,7 @@ export function DealsMap() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="rounded-xl border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold normal-case tracking-normal text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--signal)]/30"
+              className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold normal-case tracking-normal text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--signal)]/30 cursor-pointer"
             >
               <option value="distance">Nearest first</option>
               <option value="newest">Newest posted</option>
@@ -177,12 +177,12 @@ export function DealsMap() {
         )}
 
         {!loading && error && !backendGap && (
-          <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-rose-700">
+          <div className="space-y-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center text-rose-500">
             <p className="break-words text-sm font-semibold">{error}</p>
             <button
               type="button"
               onClick={() => void refetch()}
-              className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white"
+              className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white cursor-pointer"
             >
               Retry
             </button>
@@ -190,8 +190,8 @@ export function DealsMap() {
         )}
 
         {!loading && !error && filteredDeals.length === 0 && (
-          <div className="space-y-4 rounded-3xl border border-[var(--line)] bg-white px-6 py-14 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--paper)] text-[var(--pool)]">
+          <div className="space-y-4 rounded-3xl border border-[var(--line)] bg-[var(--surface)] px-6 py-14 text-center shadow-xs">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--paper)] text-[var(--signal)]">
               <Compass className="h-7 w-7" />
             </div>
             <div className="mx-auto max-w-md space-y-1">
@@ -206,13 +206,13 @@ export function DealsMap() {
               <button
                 type="button"
                 onClick={() => dispatch(setRadiusKm(25))}
-                className="rounded-xl bg-[var(--paper)] px-4 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--line)]"
+                className="rounded-xl bg-[var(--paper)] px-4 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--line)] cursor-pointer"
               >
                 Expand to 25 km
               </button>
               <Link
                 to="/deals/new"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-5 py-2 text-xs font-bold text-white transition hover:bg-[var(--signal-deep)]"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-5 py-2 text-xs font-bold text-white transition hover:bg-[var(--signal-deep)] shadow-xs"
               >
                 <Plus className="h-4 w-4" />
                 Post a need

@@ -6,47 +6,55 @@ import {
   Coins,
   Crosshair,
   MapPin,
+  Moon,
   Plus,
   Search,
   Shield,
   Sliders,
+  Sun,
   User,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useGeolocation, CITY_PRESETS } from "../../hooks/useGeolocation";
+import { useTheme } from "../../hooks/useTheme";
 import { useAppDispatch, useAppSelector } from "../../redux/store";
 import { setSearchQuery, setRadiusKm } from "../../redux/slices/dealsSlice";
 import { BrandMark } from "../common/BrandMark";
 import { cn } from "../../lib/cn";
-import api from "../../services/api";
 import { WalletModal } from "../wallet/WalletModal";
-import type { WalletSummary } from "../../types/contracts";
+import { fetchWallet } from "../../redux/slices/walletSlice";
 
 export function Header() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user, isAdmin, logout } = useAuth();
+  const { theme, toggleTheme, isDark } = useTheme();
   const { userLocation, selectPresetCity, requestBrowserLocation, geoStatus } = useGeolocation();
   const radiusKm = useAppSelector((state) => state.deals.radiusKm);
   const searchQuery = useAppSelector((state) => state.deals.searchQuery);
+  const wallet = useAppSelector((state) => state.wallet.summary);
+  const pulseTrigger = useAppSelector((state) => state.wallet.pulseTrigger);
 
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showRadiusDropdown, setShowRadiusDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [wallet, setWallet] = useState<WalletSummary | null>(null);
+  const [isPulsing, setIsPulsing] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!user) {
-      setWallet(null);
-      return;
+    if (user) {
+      dispatch(fetchWallet());
     }
-    api
-      .get<any, WalletSummary>("/api/wallet")
-      .then((data) => setWallet(data))
-      .catch(() => setWallet(null));
-  }, [user]);
+  }, [user, dispatch]);
+
+  useEffect(() => {
+    if (pulseTrigger > 0) {
+      setIsPulsing(true);
+      const timer = setTimeout(() => setIsPulsing(false), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [pulseTrigger]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -84,7 +92,7 @@ export function Header() {
             value={searchQuery}
             onChange={(e) => dispatch(setSearchQuery(e.target.value))}
             placeholder="Search needs…"
-            className="w-full truncate rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--ink)] focus:bg-white focus:ring-2 focus:ring-[var(--signal)]/25"
+            className="w-full truncate rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--ink)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--signal)] focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)]/25"
           />
         </div>
 
@@ -97,14 +105,14 @@ export function Header() {
               setShowRadiusDropdown(false);
               setShowUserMenu(false);
             }}
-            className="flex max-w-[10rem] items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface)] lg:max-w-[12rem]"
+            className="flex max-w-[10rem] items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--paper)] lg:max-w-[12rem] cursor-pointer shadow-xs"
           >
             <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--signal)]" />
             <span className="truncate">{userLocation.cityName}</span>
             <ChevronDown className="h-3 w-3 shrink-0 text-[var(--muted)]" />
           </button>
           {showLocationDropdown && (
-            <div className="dropdown-panel absolute left-0 mt-2 w-64 overflow-hidden rounded-2xl border border-[var(--line)] bg-white py-2 shadow-lg">
+            <div className="dropdown-panel absolute left-0 mt-2 w-64 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-2 shadow-xl z-50">
               <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--muted)]">
                 City / region
               </div>
@@ -114,7 +122,7 @@ export function Header() {
                   requestBrowserLocation();
                   closeMenus();
                 }}
-                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-semibold text-[var(--pool)] transition hover:bg-[var(--surface)]"
+                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-semibold text-emerald-500 transition hover:bg-[var(--paper)] cursor-pointer"
               >
                 <Crosshair className="h-3.5 w-3.5" />
                 {geoStatus === "requesting" ? "Locating…" : "Use current GPS"}
@@ -129,9 +137,9 @@ export function Header() {
                     closeMenus();
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between px-3.5 py-2 text-left text-xs transition hover:bg-[var(--surface)]",
+                    "flex w-full items-center justify-between px-3.5 py-2 text-left text-xs transition hover:bg-[var(--paper)] cursor-pointer",
                     userLocation.cityName === city.name
-                      ? "font-bold text-[var(--pool)]"
+                      ? "font-bold text-[var(--signal)]"
                       : "font-medium text-[var(--ink)]"
                   )}
                 >
@@ -151,14 +159,14 @@ export function Header() {
               setShowLocationDropdown(false);
               setShowUserMenu(false);
             }}
-            className="flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--surface)]"
+            className="flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--paper)] cursor-pointer shadow-xs"
           >
             <Sliders className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" />
             <span className="whitespace-nowrap">{radiusKm} km</span>
             <ChevronDown className="h-3 w-3 shrink-0 text-[var(--muted)]" />
           </button>
           {showRadiusDropdown && (
-            <div className="dropdown-panel absolute left-0 mt-2 w-40 overflow-hidden rounded-2xl border border-[var(--line)] bg-white py-2 shadow-lg">
+            <div className="dropdown-panel absolute left-0 mt-2 w-40 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-2 shadow-xl z-50">
               {[3, 5, 8, 15, 25].map((r) => (
                 <button
                   key={r}
@@ -168,8 +176,8 @@ export function Header() {
                     closeMenus();
                   }}
                   className={cn(
-                    "flex w-full px-3.5 py-2 text-left text-xs transition hover:bg-[var(--surface)]",
-                    radiusKm === r ? "font-bold text-[var(--pool)]" : "font-medium text-[var(--ink)]"
+                    "flex w-full px-3.5 py-2 text-left text-xs transition hover:bg-[var(--paper)] cursor-pointer",
+                    radiusKm === r ? "font-bold text-[var(--signal)]" : "font-medium text-[var(--ink)]"
                   )}
                 >
                   {r} km
@@ -180,24 +188,47 @@ export function Header() {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {user && wallet && (
+          <button
+            type="button"
+            id="theme-toggle-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] transition-all hover:bg-[var(--line)]/40 hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+            title={`Switch to ${isDark ? "Bright Mode" : "Dark Mode"}`}
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4 text-amber-400 animate-in spin-in-180 duration-300" />
+            ) : (
+              <Moon className="h-4 w-4 text-[var(--ink)] animate-in spin-in-180 duration-300" />
+            )}
+          </button>
+
+          {user && (
             <button
               type="button"
+              id="header-wallet-btn"
               onClick={() => setShowWalletModal(true)}
-              className="hidden items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-white sm:inline-flex cursor-pointer"
-              title="Click to view wallet & deposit coins"
+              className={cn(
+                "group relative flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] transition-all duration-300 hover:border-emerald-500 hover:shadow-xs cursor-pointer",
+                isPulsing && "ring-2 ring-emerald-400 bg-emerald-500/10 scale-105"
+              )}
             >
-              <Coins className="h-3.5 w-3.5 text-[var(--signal)]" />
-              <span>₹{Math.round(Number(wallet.balance ?? 0))}</span>
-              {Number(wallet.locked_balance ?? 0) > 0 && (
-                <span className="text-[var(--muted)]">· {Math.round(Number(wallet.locked_balance))} locked</span>
+              <Coins className={cn("h-4 w-4 text-amber-500 transition-transform group-hover:scale-110", isPulsing && "animate-bounce text-emerald-400")} />
+              <span className="font-extrabold text-[var(--ink)]">₹{Math.round(Number(wallet?.balance ?? 0)).toLocaleString("en-IN")}</span>
+              <span className="text-[10px] text-[var(--muted)] font-normal hidden sm:inline">coins</span>
+              {isPulsing && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
               )}
             </button>
           )}
+
           <Link
             to="/deals/new"
             id="header-post-deal-btn"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-3 py-2 text-xs font-bold text-white transition hover:bg-[var(--signal-deep)] sm:px-4"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-3 py-2 text-xs font-bold text-white transition hover:bg-[var(--signal-deep)] hover:scale-102 active:scale-98 sm:px-4 shadow-xs"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Post a need</span>
@@ -213,28 +244,29 @@ export function Header() {
                   setShowLocationDropdown(false);
                   setShowRadiusDropdown(false);
                 }}
-                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--line)] bg-[var(--surface)] transition hover:ring-2 hover:ring-[var(--signal)]/35"
+                className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 transition hover:bg-[var(--paper)] cursor-pointer"
               >
                 {user.profile_photo ? (
                   <img
                     src={user.profile_photo}
                     alt=""
+                    className="h-7 w-7 rounded-lg object-cover"
                     referrerPolicy="no-referrer"
-                    className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="text-xs font-bold text-[var(--pool)]">
-                    {user.username.charAt(0).toUpperCase()}
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--surface)] text-xs font-bold text-[var(--pool)]">
+                    {user.username.slice(0, 1).toUpperCase()}
                   </span>
                 )}
+                <ChevronDown className="mr-1 h-3.5 w-3.5 text-[var(--muted)]" />
               </button>
               {showUserMenu && (
-                <div className="dropdown-panel absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--line)] bg-white py-2 shadow-lg">
+                <div className="dropdown-panel absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-2 shadow-xl z-50">
                   <div className="border-b border-[var(--line)] px-4 py-2">
                     <p className="truncate text-xs font-bold text-[var(--ink)]">{user.username}</p>
                     <p className="truncate text-[10px] text-[var(--muted)]">{user.email}</p>
                     {isAdmin && (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--pool)]">
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500">
                         <Shield className="h-3 w-3" />
                         Admin
                       </span>
@@ -246,7 +278,7 @@ export function Header() {
                       closeMenus();
                       setShowWalletModal(true);
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)] text-left cursor-pointer"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--paper)] text-left cursor-pointer"
                   >
                     <Coins className="h-3.5 w-3.5 text-[var(--signal)]" />
                     My Wallet & Coins
@@ -254,21 +286,21 @@ export function Header() {
                   <Link
                     to="/contracts"
                     onClick={closeMenus}
-                    className="block px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]"
+                    className="block px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--paper)]"
                   >
                     Contracts & escrow
                   </Link>
                   <Link
                     to="/my-deals"
                     onClick={closeMenus}
-                    className="block px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]"
+                    className="block px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--paper)]"
                   >
                     My deals & offers
                   </Link>
                   <Link
                     to="/settings"
                     onClick={closeMenus}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]"
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--ink)] hover:bg-[var(--paper)]"
                   >
                     <User className="h-3.5 w-3.5 text-[var(--muted)]" />
                     Profile & settings
@@ -277,9 +309,9 @@ export function Header() {
                     <Link
                       to="/admin"
                       onClick={closeMenus}
-                      className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-[var(--pool)] hover:bg-[var(--surface)]"
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-emerald-500 hover:bg-[var(--paper)]"
                     >
-                      <Shield className="h-3.5 w-3.5" />
+                      <Shield className="h-3.5 w-3" />
                       Admin panel
                     </Link>
                   )}
@@ -297,7 +329,7 @@ export function Header() {
                           navigate("/");
                         }
                       }}
-                      className="w-full px-4 py-2 text-left text-xs font-medium text-rose-600 hover:bg-rose-50"
+                      className="w-full px-4 py-2 text-left text-xs font-medium text-rose-500 hover:bg-rose-500/10 cursor-pointer"
                     >
                       Log out
                     </button>
@@ -318,7 +350,6 @@ export function Header() {
       <WalletModal
         isOpen={showWalletModal}
         onClose={() => setShowWalletModal(false)}
-        onWalletUpdated={setWallet}
       />
     </header>
   );

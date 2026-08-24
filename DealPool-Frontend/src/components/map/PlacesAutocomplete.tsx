@@ -32,8 +32,8 @@ export function PlacesAutocomplete({
   const [mapsAvailable, setMapsAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const autocompleteServiceRef = useRef<any>(null);
+  const geocoderRef = useRef<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -79,10 +79,10 @@ export function PlacesAutocomplete({
           input: query,
           types: ["geocode", "establishment"],
         },
-        (predictions, status) => {
+        (predictions: any[], status: any) => {
           setLoading(false);
           if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
+            (status === "OK" || status === window.google?.maps?.places?.PlacesServiceStatus?.OK) &&
             predictions
           ) {
             setSuggestions(

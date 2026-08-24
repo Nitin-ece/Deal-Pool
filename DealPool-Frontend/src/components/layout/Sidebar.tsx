@@ -30,7 +30,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 z-30 hidden h-screen w-56 shrink-0 flex-col border-r border-[var(--line)] bg-white lg:flex xl:w-60">
+    <aside className="sticky top-0 z-30 hidden h-screen w-56 shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] lg:flex xl:w-60 transition-colors">
       <div className="border-b border-[var(--line)] px-5 py-5">
         <BrandMark size="sm" />
       </div>
@@ -49,10 +49,10 @@ export function Sidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all",
                 isActive
-                  ? "bg-[var(--ink)] text-white"
-                  : "text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                  ? "bg-[var(--signal)]/15 text-[var(--signal)] border border-[var(--signal)]/30 shadow-xs"
+                  : "text-[var(--muted)] hover:bg-[var(--line)]/40 hover:text-[var(--ink)]"
               )}
             >
               <Icon className={cn("h-5 w-5", isActive ? "text-[var(--signal)]" : "")} />

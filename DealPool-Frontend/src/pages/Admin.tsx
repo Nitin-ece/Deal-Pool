@@ -131,36 +131,36 @@ export function Admin() {
 
       {/* Aggregate Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-[var(--line)] shadow-xs">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Total Users</div>
+        <div className="bg-[var(--surface)] p-5 rounded-3xl border border-[var(--line)] shadow-xs">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Total Users</div>
           <div className="text-2xl font-black text-[var(--ink)] mt-1">{users.length}</div>
         </div>
-        <div className="bg-white p-5 rounded-3xl border border-[var(--line)] shadow-xs">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Administrators</div>
+        <div className="bg-[var(--surface)] p-5 rounded-3xl border border-[var(--line)] shadow-xs">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Administrators</div>
           <div className="text-2xl font-black text-[var(--signal)] mt-1">
             {users.filter((u) => u.role === "admin").length}
           </div>
         </div>
-        <div className="bg-white p-5 rounded-3xl border border-[var(--line)] shadow-xs col-span-2 sm:col-span-1">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Standard Users</div>
-          <div className="text-2xl font-black text-gray-700 mt-1">
+        <div className="bg-[var(--surface)] p-5 rounded-3xl border border-[var(--line)] shadow-xs col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Standard Users</div>
+          <div className="text-2xl font-black text-[var(--ink)] mt-1">
             {users.filter((u) => u.role === "user").length}
           </div>
         </div>
       </div>
 
       {/* Directory Table Card */}
-      <div className="bg-white rounded-3xl border border-[var(--line)] shadow-xs overflow-hidden">
+      <div className="bg-[var(--surface)] rounded-3xl border border-[var(--line)] shadow-xs overflow-hidden">
         {/* Search Bar */}
         <div className="p-4 sm:p-5 border-b border-[var(--line)]">
           <div className="relative max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)] w-4 h-4" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search users by username, email, or role..."
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl text-xs sm:text-sm text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[var(--signal)] transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-[var(--paper)] rounded-xl text-xs sm:text-sm text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all"
             />
           </div>
         </div>
@@ -168,7 +168,7 @@ export function Admin() {
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b border-[var(--line)] text-gray-400 font-bold uppercase text-[10px] tracking-wider">
+            <thead className="bg-[var(--paper)] border-b border-[var(--line)] text-[var(--muted)] font-bold uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="py-3 px-4">User</th>
                 <th className="py-3 px-4">Email</th>
@@ -177,22 +177,22 @@ export function Admin() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[var(--line)]">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                  <td colSpan={5} className="py-8 text-center text-[var(--muted)]">
                     Loading users...
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400">
+                  <td colSpan={5} className="py-8 text-center text-[var(--muted)]">
                     No users match search criteria.
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50/70 transition-colors">
+                  <tr key={u.id} className="hover:bg-[var(--paper)]/50 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
                         {u.profile_photo ? (
@@ -211,21 +211,21 @@ export function Admin() {
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-gray-600">{u.email}</td>
+                    <td className="py-3.5 px-4 text-[var(--muted)]">{u.email}</td>
 
                     <td className="py-3.5 px-4">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                           u.role === "admin"
-                            ? "bg-emerald-100 text-[var(--pool)]"
-                            : "bg-gray-100 text-gray-700"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : "bg-[var(--paper)] text-[var(--ink)] border border-[var(--line)]"
                         }`}
                       >
                         {u.role}
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-4 text-gray-700 font-semibold">
+                    <td className="py-3.5 px-4 text-[var(--ink)] font-semibold">
                       {u.avg_rating != null
                         ? `${Number(u.avg_rating).toFixed(1)}★ (${u.rating_count})`
                         : "N/A"}
@@ -237,7 +237,7 @@ export function Admin() {
                           <button
                             type="button"
                             onClick={() => handleRoleChange(u.id, "admin")}
-                            className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-[var(--paper)] hover:text-[var(--pool)] text-gray-700 text-[11px] font-bold transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[var(--paper)] hover:bg-[var(--signal)] hover:text-white text-[var(--ink)] text-[11px] font-bold transition-colors cursor-pointer"
                           >
                             Promote to Admin
                           </button>
@@ -246,7 +246,7 @@ export function Admin() {
                             type="button"
                             onClick={() => handleRoleChange(u.id, "user")}
                             disabled={u.id === user?.id}
-                            className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-30"
+                            className="px-2.5 py-1 rounded-lg bg-[var(--paper)] hover:bg-[var(--line)] text-[var(--muted)] text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-30"
                           >
                             Demote to User
                           </button>
@@ -256,7 +256,7 @@ export function Admin() {
                           type="button"
                           onClick={() => handleDeleteUser(u.id)}
                           disabled={u.id === user?.id}
-                          className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-30"
+                          className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-30"
                           title="Delete User Record"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

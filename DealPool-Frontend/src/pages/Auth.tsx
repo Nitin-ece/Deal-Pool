@@ -167,7 +167,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="rounded-3xl border border-[var(--line)] bg-white p-6 shadow-sm sm:p-8"
+          className="rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-xs sm:p-8"
         >
           <div className="mb-5 flex rounded-xl bg-[var(--paper)] p-1">
             <button
@@ -179,9 +179,9 @@ export function Auth({ initialMode = "login" }: AuthProps) {
                 navigate("/login", { replace: true });
               }}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition cursor-pointer",
                 mode === "login"
-                  ? "bg-white text-[var(--ink)] shadow-sm"
+                  ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs"
                   : "text-[var(--muted)] hover:text-[var(--ink)]"
               )}
             >
@@ -197,9 +197,9 @@ export function Auth({ initialMode = "login" }: AuthProps) {
                 navigate("/register", { replace: true });
               }}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition cursor-pointer",
                 mode === "register"
-                  ? "bg-white text-[var(--ink)] shadow-sm"
+                  ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs"
                   : "text-[var(--muted)] hover:text-[var(--ink)]"
               )}
             >
@@ -211,7 +211,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
           {displayError && (
             <div
               role="alert"
-              className="mb-4 flex items-start gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-xs leading-relaxed text-rose-700"
+              className="mb-4 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-3 text-xs leading-relaxed text-rose-500"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="min-w-0 break-words">{displayError}</span>
@@ -231,7 +231,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--ink)] focus:bg-white focus:ring-2 focus:ring-[var(--signal)]/30"
+                className="w-full rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--signal)] focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)]/30"
               />
             </div>
 
@@ -251,14 +251,14 @@ export function Auth({ initialMode = "login" }: AuthProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--ink)] focus:bg-white focus:ring-2 focus:ring-[var(--signal)]/30"
+                className="w-full rounded-xl border border-[var(--line)] bg-[var(--paper)] px-3.5 py-2.5 text-sm text-[var(--ink)] outline-none transition focus:border-[var(--signal)] focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)]/30"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading || googleLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--signal)] py-3 text-sm font-bold text-white transition hover:bg-[var(--signal-deep)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--signal)] py-3 text-sm font-bold text-white transition hover:bg-[var(--signal-deep)] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-xs"
             >
               {isLoading ? (
                 "Connecting…"
@@ -278,7 +278,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
 
           <div className="relative my-5 flex items-center justify-center">
             <div className="absolute inset-x-0 border-t border-[var(--line)]" />
-            <span className="relative bg-white px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+            <span className="relative bg-[var(--surface)] px-3 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
               or
             </span>
           </div>
@@ -286,7 +286,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
             type="button"
             onClick={handleGoogle}
             disabled={isLoading || googleLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-white py-2.5 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface)] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2.5 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--line)]/30 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden>
               <path

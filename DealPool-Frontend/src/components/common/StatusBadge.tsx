@@ -13,7 +13,7 @@ export function StatusBadge({
   switch (status) {
     case "open":
       return (
-        <span className={cn(base, "border border-[var(--line)] bg-white text-[var(--pool)]")}>
+        <span className={cn(base, "border border-[var(--pool)]/30 bg-[var(--pool)]/10 text-[var(--pool)]")}>
           Open
         </span>
       );
@@ -21,43 +21,43 @@ export function StatusBadge({
       return <span className={cn(base, "bg-[var(--signal)] text-white")}>Matched</span>;
     case "completed":
       return (
-        <span className={cn(base, "bg-[var(--paper)] text-[var(--ink)]")}>Completed</span>
+        <span className={cn(base, "border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)]")}>Completed</span>
       );
     case "cancelled":
       return (
-        <span className={cn(base, "border border-rose-100 bg-rose-50 text-rose-600")}>
+        <span className={cn(base, "border border-rose-500/30 bg-rose-500/10 text-rose-500")}>
           Cancelled
         </span>
       );
     case "pending":
       return (
-        <span className={cn(base, "border border-amber-200 bg-amber-50 text-amber-800")}>
+        <span className={cn(base, "border border-amber-500/30 bg-amber-500/10 text-amber-500")}>
           Pending
         </span>
       );
     case "accepted":
       return (
-        <span className={cn(base, "border border-[var(--line)] bg-[var(--surface)] text-[var(--pool)]")}>
+        <span className={cn(base, "border border-emerald-500/30 bg-emerald-500/10 text-emerald-500")}>
           Accepted
         </span>
       );
     case "rejected":
       return (
-        <span className={cn(base, "bg-[var(--paper)] text-[var(--muted)]")}>Declined</span>
+        <span className={cn(base, "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]")}>Declined</span>
       );
     case "withdrawn":
       return (
-        <span className={cn(base, "bg-[var(--paper)] text-[var(--muted)]")}>Withdrawn</span>
+        <span className={cn(base, "border border-[var(--line)] bg-[var(--paper)] text-[var(--muted)]")}>Withdrawn</span>
       );
     case "created":
       return (
-        <span className={cn(base, "border border-[var(--line)] bg-white text-[var(--ink)]")}>
+        <span className={cn(base, "border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]")}>
           Created
         </span>
       );
     case "pending_confirmation":
       return (
-        <span className={cn(base, "border border-amber-200 bg-amber-50 text-amber-800")}>
+        <span className={cn(base, "border border-amber-500/30 bg-amber-500/10 text-amber-500")}>
           Awaiting confirm
         </span>
       );
@@ -72,13 +72,13 @@ export function StatusBadge({
     case "returned":
     case "returned_pending_dispute":
       return (
-        <span className={cn(base, "border border-sky-200 bg-sky-50 text-sky-800")}>
+        <span className={cn(base, "border border-sky-500/30 bg-sky-500/10 text-sky-400")}>
           Returned
         </span>
       );
     case "disputed":
       return (
-        <span className={cn(base, "border border-rose-200 bg-rose-50 text-rose-700")}>
+        <span className={cn(base, "border border-rose-500/30 bg-rose-500/10 text-rose-500")}>
           Disputed
         </span>
       );

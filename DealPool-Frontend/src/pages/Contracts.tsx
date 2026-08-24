@@ -18,10 +18,13 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import { useAppDispatch } from "../redux/store";
+import { fetchWallet } from "../redux/slices/walletSlice";
 import { cn } from "../lib/cn";
 import type { Contract, HandoffToken } from "../types/contracts";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { HandoffQr } from "../components/contracts/HandoffQr";
+import { RatingModal } from "../components/contracts/RatingModal";
 
 const STEPS = [
   { key: "confirm", label: "Confirm", icon: Handshake },
@@ -64,9 +67,11 @@ function ContractCard({
   userId: string;
   onRefresh: () => void;
 }) {
+  const dispatch = useAppDispatch();
   const [loading, setLoading] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState<HandoffToken | null>(null);
   const [scanToken, setScanToken] = useState("");
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   const isRequester = contract.requester_id === userId;
   const isProvider = contract.provider_id === userId;
@@ -81,6 +86,7 @@ function ContractCard({
       await fn();
       toast.success("Contract updated");
       onRefresh();
+      dispatch(fetchWallet());
     } catch (err: unknown) {
       const e = err as { message?: string };
       toast.error(e.message || "Action failed");
@@ -167,7 +173,7 @@ function ContractCard({
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-3xl border border-[var(--line)] bg-white shadow-sm"
+      className="overflow-hidden rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-xs"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-5 py-4">
         <div>
@@ -226,17 +232,17 @@ function ContractCard({
 
       <div className="space-y-3 px-5 pb-5">
         <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-          <div className="rounded-xl bg-[var(--surface)] p-3">
+          <div className="rounded-xl bg-[var(--paper)] p-3">
             <span className="text-[var(--muted)]">Declared value</span>
             <p className="font-bold text-[var(--ink)]">₹{Number(contract.declared_value)}</p>
           </div>
-          <div className="rounded-xl bg-[var(--surface)] p-3">
+          <div className="rounded-xl bg-[var(--paper)] p-3">
             <span className="text-[var(--muted)]">Contact</span>
             <p className="font-bold text-[var(--ink)]">
               {contract.contact_revealed ? "Revealed" : "Hidden until both confirm"}
             </p>
           </div>
-          <div className="col-span-2 rounded-xl bg-[var(--surface)] p-3 sm:col-span-1">
+          <div className="col-span-2 rounded-xl bg-[var(--paper)] p-3 sm:col-span-1">
             <span className="text-[var(--muted)]">Your confirm</span>
             <p className="font-bold text-[var(--ink)]">
               {alreadyConfirmed ? "Done" : "Waiting"}
@@ -259,7 +265,7 @@ function ContractCard({
                 type="button"
                 disabled={!!loading}
                 onClick={confirm}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--pool)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--pool)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 <Handshake className="h-3.5 w-3.5" />
                 {loading === "confirm" ? "Confirming…" : "Confirm participation"}
@@ -275,7 +281,7 @@ function ContractCard({
               type="button"
               disabled={!!loading}
               onClick={cancel}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 transition hover:bg-rose-500/20 disabled:opacity-50 cursor-pointer"
             >
               <XCircle className="h-3.5 w-3.5" />
               Cancel (10% fee)
@@ -297,7 +303,7 @@ function ContractCard({
                     type="button"
                     disabled={!!loading}
                     onClick={() => fetchToken("checkout")}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-4 py-2 text-xs font-bold text-white"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--signal)] px-4 py-2 text-xs font-bold text-white cursor-pointer shadow-xs"
                   >
                     <QrCode className="h-3.5 w-3.5" />
                     Generate pickup QR
@@ -306,7 +312,7 @@ function ContractCard({
                     type="button"
                     disabled={!!loading || (!scanToken.trim() && qrToken?.purpose !== "checkout")}
                     onClick={() => checkout()}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-4 py-2 text-xs font-bold disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold text-[var(--ink)] disabled:opacity-50 cursor-pointer"
                   >
                     Complete checkout
                   </button>
@@ -316,7 +322,7 @@ function ContractCard({
                 type="button"
                 disabled={!!loading}
                 onClick={cancel}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-500 cursor-pointer"
               >
                 Cancel before pickup
               </button>
@@ -331,7 +337,7 @@ function ContractCard({
                   value={scanToken}
                   onChange={(e) => setScanToken(e.target.value)}
                   placeholder="Paste handoff token…"
-                  className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-xs font-medium text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--signal)]/30"
+                  className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--signal)]/30"
                 />
               </label>
             )}
@@ -347,9 +353,9 @@ function ContractCard({
               type="button"
               disabled={!!loading}
               onClick={() => fetchToken("return")}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--pool)] px-4 py-2 text-xs font-bold text-white"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--pool)] px-4 py-2 text-xs font-bold text-white cursor-pointer shadow-xs"
             >
-              <QrCode className="h-3.5 w-3.5" />
+              <RotateCcw className="h-3.5 w-3.5" />
               Generate return QR
             </button>
             {qrToken?.purpose === "return" && (
@@ -361,14 +367,14 @@ function ContractCard({
                 value={scanToken}
                 onChange={(e) => setScanToken(e.target.value)}
                 placeholder="Paste return token…"
-                className="mt-1 w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-[var(--pool)]/30"
+                className="mt-1 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--pool)]/30"
               />
             </label>
             <button
               type="button"
               disabled={!!loading || (!scanToken.trim() && qrToken?.purpose !== "return")}
               onClick={() => returnItem()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-4 py-2 text-xs font-bold disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-bold text-[var(--ink)] disabled:opacity-50 cursor-pointer"
             >
               Complete return
             </button>
@@ -379,7 +385,7 @@ function ContractCard({
           contract.status === "returned_pending_dispute") && (
           <div className="space-y-2">
             {contract.dispute_deadline && (
-              <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <div className="flex items-center gap-2 rounded-xl bg-amber-500/15 px-3 py-2 text-xs text-amber-500 border border-amber-500/30">
                 <Clock className="h-3.5 w-3.5 shrink-0" />
                 Dispute window until {new Date(contract.dispute_deadline).toLocaleString()}
               </div>
@@ -389,7 +395,7 @@ function ContractCard({
                 type="button"
                 disabled={!!loading}
                 onClick={dispute}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 cursor-pointer"
               >
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Dispute condition
@@ -399,20 +405,29 @@ function ContractCard({
         )}
 
         {contract.status === "completed" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-[var(--muted)]">Rate this exchange:</span>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                disabled={!!loading}
-                onClick={() => rate(n)}
-                className="rounded-lg p-1.5 text-amber-500 transition hover:bg-amber-50 hover:scale-110"
-              >
-                <Star className="h-4 w-4 fill-current" />
-                <span className="sr-only">{n} stars</span>
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-amber-500/10 rounded-2xl border border-amber-500/25">
+            <div className="flex items-center gap-2 text-xs text-amber-500 font-bold">
+              <Star className="w-4 h-4 fill-amber-400 text-amber-500" />
+              <span>Exchange completed & finalized!</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRatingModal(true)}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span>Rate & Review Exchange</span>
+            </button>
+            <RatingModal
+              contractId={contract.id}
+              isOpen={showRatingModal}
+              onClose={() => setShowRatingModal(false)}
+              onSuccess={() => {
+                onRefresh();
+                dispatch(fetchWallet());
+              }}
+              counterpartName={isRequester ? "Lender" : "Requester"}
+            />
           </div>
         )}
       </div>
@@ -448,7 +463,7 @@ export function Contracts() {
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--pool)]">
+          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--pool)] shadow-xs">
             <Shield className="h-3 w-3" />
             Escrow protected
           </div>
@@ -463,7 +478,7 @@ export function Contracts() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface)]"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--line)]/40 cursor-pointer shadow-xs"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           Refresh
@@ -477,7 +492,7 @@ export function Contracts() {
           ))}
         </div>
       ) : contracts.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-[var(--line)] bg-white p-12 text-center">
+        <div className="rounded-3xl border border-dashed border-[var(--line)] bg-[var(--surface)] p-12 text-center shadow-xs">
           <Package className="mx-auto h-10 w-10 text-[var(--muted)]" />
           <p className="mt-3 font-bold text-[var(--ink)]">No active contracts</p>
           <p className="mt-1 text-xs text-[var(--muted)]">
@@ -485,7 +500,7 @@ export function Contracts() {
           </p>
           <Link
             to="/deals"
-            className="mt-4 inline-flex rounded-xl bg-[var(--signal)] px-4 py-2 text-xs font-bold text-white"
+            className="mt-4 inline-flex rounded-xl bg-[var(--signal)] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[var(--signal-deep)] transition-all"
           >
             Browse radar
           </Link>

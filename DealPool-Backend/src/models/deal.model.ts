@@ -137,8 +137,25 @@ export const findNearbyDeals = async (
     lng: number,
     radiusKm: number,
     limit: number,
-    offset: number
+    offset: number,
+    category?: string
 ): Promise<(Deal & { distance_km: number; has_offers: boolean })[]> => {
+    const conditions = [
+        "d.status = 'open'",
+        "ST_DWithin(d.location, ST_MakePoint($1, $2)::geography, $3 * 1000)"
+    ];
+    const values: unknown[] = [lng, lat, radiusKm];
+
+    if (category && category !== "All") {
+        values.push(category);
+        conditions.push(`d.category = $${values.length}`);
+    }
+
+    values.push(limit);
+    const limitIdx = values.length;
+    values.push(offset);
+    const offsetIdx = values.length;
+
     const result = await pool.query(
         `
         SELECT
@@ -150,12 +167,11 @@ export const findNearbyDeals = async (
                   AND o.status IN ('pending', 'accepted')
             ) AS has_offers
         FROM deals d
-        WHERE d.status = 'open'
-          AND ST_DWithin(d.location, ST_MakePoint($1, $2)::geography, $3 * 1000)
+        WHERE ${conditions.join(" AND ")}
         ORDER BY d.location <-> ST_MakePoint($1, $2)::geography
-        LIMIT $4 OFFSET $5
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
         `,
-        [lng, lat, radiusKm, limit, offset]
+        values
     );
 
     return result.rows;

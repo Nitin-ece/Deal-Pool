@@ -14,7 +14,8 @@ import {
     insertTransaction,
     findLatestTransactionForResource,
 } from "../models/transaction.model";
-import { findResourceById } from "../models/resource.model";
+import { findResourceById, insertResource } from "../models/resource.model";
+import { computeDefaultDepositRate } from "./resource.service";
 import { checkUserHasDebt, getOrCreateWallet, hasOutstandingDebt } from "./wallet.service";
 import { findWalletByUserId } from "../models/wallet.model";
 import { insertContract } from "../models/contract.model";
@@ -148,16 +149,30 @@ export const acceptOffer = async (
         const deal = await findDealById(offer.deal_id, client);
         if (!deal) throw notFound("Deal not found", "DEAL_NOT_FOUND");
         if (deal.user_id !== requesterId) throw forbidden("Not your deal", "FORBIDDEN");
-
         if (offer.status !== "pending") throw conflict("Offer is not pending", "OFFER_NOT_PENDING");
         if (deal.status !== "open") throw conflict("Deal is not open", "DEAL_NOT_OPEN");
 
-        if (!deal.resource_id) {
-            throw badRequest("Deal does not have an associated resource", "INVALID_DEAL");
+        let resourceId = deal.resource_id;
+        let resource = resourceId ? await findResourceById(resourceId, client) : null;
+        if (!resource) {
+            const declaredVal = Math.max(Number(deal.budget_max || deal.budget_min || 1000), 100);
+            const depositRate = computeDefaultDepositRate(declaredVal);
+            const newRes = await insertResource({
+                ownerId: deal.user_id,
+                title: deal.title,
+                description: deal.description ?? null,
+                category: deal.category ?? null,
+                condition: "Good",
+                declaredValue: declaredVal,
+                securityDepositRate: depositRate,
+                lat: deal.lat || 0,
+                lng: deal.lng || 0,
+            }, client);
+            resource = newRes;
+            resourceId = newRes.id;
+            deal.resource_id = resourceId;
+            await client.query("UPDATE deals SET resource_id = $1 WHERE id = $2", [resourceId, deal.id]);
         }
-
-        const resource = await findResourceById(deal.resource_id, client);
-        if (!resource) throw notFound("Resource not found", "RESOURCE_NOT_FOUND");
 
         const declaredValue = Number(resource.declared_value || 0);
         const depositRate = Number(resource.security_deposit_rate || 0.15);

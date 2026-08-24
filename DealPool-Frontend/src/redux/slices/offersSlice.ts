@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api";
 import { getErrorMessage } from "../../lib/errors";
 import { Offer } from "../../types";
+import { fetchWallet } from "./walletSlice";
 
 interface OffersState {
   offersByDeal: Record<string, Offer[]>;
@@ -46,9 +47,10 @@ export const createOffer = createAsyncThunk(
 
 export const acceptOffer = createAsyncThunk(
   "offers/acceptOffer",
-  async (offerId: string, { rejectWithValue }) => {
+  async (offerId: string, { dispatch, rejectWithValue }) => {
     try {
       const data = await api.patch<any, Offer>(`/api/offers/${offerId}/accept`);
+      dispatch(fetchWallet());
       return data;
     } catch (err: unknown) {
       return rejectWithValue(getErrorMessage(err, "Failed to accept offer"));

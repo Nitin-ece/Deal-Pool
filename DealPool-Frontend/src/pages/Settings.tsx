@@ -61,14 +61,14 @@ export function Settings() {
     <div className="max-w-4xl mx-auto px-4 lg:px-8 py-6 space-y-8">
       {/* Header */}
       <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0FDF4] text-[#059669] text-xs font-bold border border-emerald-100 mb-1">
-          <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--signal)]/10 text-[var(--signal)] text-xs font-bold border border-[var(--signal)]/20 mb-1">
+          <Sparkles className="w-3.5 h-3.5 text-[var(--signal)]" />
           <span>Account & Identity Settings</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#1A1A1A] tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-black text-[var(--ink)] tracking-tight">
           Profile & Security
         </h1>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-[var(--muted)] mt-0.5">
           Manage your verified community identity, reputation metadata, and authentication credentials.
         </p>
       </div>
@@ -77,15 +77,15 @@ export function Settings() {
       <ProfileEditForm user={user} />
 
       {/* Security: Change Password */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E5E5E2] shadow-xs space-y-5">
+      <div className="bg-[var(--surface)] rounded-3xl p-6 sm:p-8 border border-[var(--line)] shadow-xs space-y-5">
         <div className="flex items-center gap-2">
-          <KeyRound className="w-4 h-4 text-[#10B981]" />
-          <h3 className="font-black text-[#1A1A1A] text-base">Security & Authentication</h3>
+          <KeyRound className="w-4 h-4 text-[var(--signal)]" />
+          <h3 className="font-black text-[var(--ink)] text-base">Security & Authentication</h3>
         </div>
 
         {user.has_password === false || user.auth_provider === "google" ? (
-          <div className="flex items-start gap-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
-            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="flex items-start gap-3.5 bg-[var(--paper)] border border-[var(--line)] rounded-2xl p-4 sm:p-5">
+            <div className="w-9 h-9 rounded-xl bg-[var(--surface)] border border-[var(--line)] flex items-center justify-center shrink-0 shadow-xs">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -106,10 +106,10 @@ export function Settings() {
               </svg>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-bold text-slate-800">
+              <p className="text-xs font-bold text-[var(--ink)]">
                 Connected via Google Authentication
               </p>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
                 You signed in using your Google account ({user.email}). Passwords and account security are managed directly through your Google account settings.
               </p>
             </div>
@@ -117,14 +117,14 @@ export function Settings() {
         ) : (
           <>
             {pwStatus === "success" && (
-              <div className="flex items-center gap-2 text-xs text-[#059669] bg-[#F0FDF4] p-3.5 rounded-xl border border-emerald-200 font-semibold">
+              <div className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/30 font-semibold">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Password successfully changed.</span>
               </div>
             )}
 
             {pwError && (
-              <div className="flex items-center gap-2 text-xs text-rose-600 bg-rose-50 p-3.5 rounded-xl border border-rose-200">
+              <div className="flex items-center gap-2 text-xs text-rose-500 bg-rose-500/10 p-3.5 rounded-xl border border-rose-500/20">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{pwError}</span>
               </div>
@@ -132,7 +132,7 @@ export function Settings() {
 
             <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label className="block text-xs font-bold text-[var(--ink)] mb-1">
                   Current Password
                 </label>
                 <input
@@ -141,12 +141,12 @@ export function Settings() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl text-sm border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all"
+                  className="w-full px-3.5 py-2.5 bg-[var(--paper)] rounded-xl text-sm text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label className="block text-xs font-bold text-[var(--ink)] mb-1">
                   New Password
                 </label>
                 <input
@@ -155,12 +155,12 @@ export function Settings() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl text-sm border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all"
+                  className="w-full px-3.5 py-2.5 bg-[var(--paper)] rounded-xl text-sm text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
+                <label className="block text-xs font-bold text-[var(--ink)] mb-1">
                   Confirm New Password
                 </label>
                 <input
@@ -169,14 +169,14 @@ export function Settings() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 rounded-xl text-sm border border-[#E5E5E2] focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#10B981] transition-all"
+                  className="w-full px-3.5 py-2.5 bg-[var(--paper)] rounded-xl text-sm text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={pwStatus === "loading"}
-                className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 bg-[var(--signal)] hover:bg-[var(--signal-deep)] text-white text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
               >
                 {pwStatus === "loading" ? "Updating..." : "Update Password"}
               </button>

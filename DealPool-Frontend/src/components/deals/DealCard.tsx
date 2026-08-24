@@ -32,24 +32,24 @@ export function DealCard({
       onMouseEnter={() => onHover && onHover(deal.id)}
       onMouseLeave={() => onHover && onHover(null)}
       onClick={() => onSelect && onSelect(deal.id)}
-      className={`group bg-white border rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer shadow-xs hover:shadow-lg ${
+      className={`group bg-[var(--surface)] border rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-250 cursor-pointer shadow-xs hover:shadow-xl hover:-translate-y-1 ${
         isSelected
-          ? "border-[var(--signal)] ring-2 ring-[var(--signal)]/25 shadow-md transform -translate-y-1"
+          ? "border-[var(--signal)] ring-2 ring-[var(--signal)]/30 shadow-lg -translate-y-1"
           : isHovered
-          ? "border-[var(--signal)]/80 shadow-md transform -translate-y-1"
-          : "border-[var(--line)] hover:border-[var(--signal)]"
+          ? "border-[var(--signal)]/80 shadow-md -translate-y-1"
+          : "border-[var(--line)] hover:border-[var(--signal)]/60"
       }`}
     >
       <div>
         {/* Item Image Header with Overlays */}
-        <div className="relative h-44 w-full overflow-hidden bg-gray-100">
+        <div className="relative h-44 w-full overflow-hidden bg-[var(--paper)]">
           <img
             src={imageUrl}
             alt={deal.title}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+            className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500 ease-out"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none" />
 
           {/* Category Badge Overlaid Top-Left */}
           <div className="absolute top-3 left-3 z-10">
@@ -79,12 +79,12 @@ export function DealCard({
         {/* Card Body */}
         <div className="p-5 space-y-3">
           {/* Title */}
-          <h4 className="font-black text-base text-[var(--ink)] group-hover:text-[var(--pool)] transition-colors line-clamp-1 tracking-tight leading-snug">
+          <h4 className="font-black text-base text-[var(--ink)] group-hover:text-[var(--signal)] transition-colors line-clamp-1 tracking-tight leading-snug">
             {deal.title}
           </h4>
 
           {/* Description */}
-          <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed font-normal">
+          <p className="text-xs text-[var(--muted)] line-clamp-2 leading-relaxed font-normal">
             {deal.description}
           </p>
 
@@ -100,16 +100,16 @@ export function DealCard({
                     className="w-5 h-5 rounded-full object-cover border border-[var(--line)] shrink-0"
                   />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-emerald-50 text-[var(--pool)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {deal.creator.username.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="font-semibold text-gray-700 truncate text-[11px]">
+                <span className="font-semibold text-[var(--ink)] truncate text-[11px]">
                   {deal.creator.username}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 shrink-0">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500 shrink-0">
                 <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
                 <span>{deal.creator.avg_rating?.toFixed(1) || "5.0"}</span>
               </div>
@@ -119,9 +119,9 @@ export function DealCard({
       </div>
 
       {/* Footer Meta: Budget Range & Action CTA */}
-      <div className="px-5 py-3.5 bg-gray-50/80 border-t border-[var(--line)] flex items-center justify-between">
+      <div className="px-5 py-3.5 bg-[var(--surface)]/50 border-t border-[var(--line)] flex items-center justify-between">
         <div>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+          <span className="text-[10px] text-[var(--muted)] font-bold uppercase tracking-wider block">
             Budget Range
           </span>
           <span className="text-base font-black text-[var(--signal)]">
@@ -138,7 +138,7 @@ export function DealCard({
                 e.stopPropagation();
                 onOpenOffer(deal);
               }}
-              className="px-3 py-1.5 rounded-xl bg-[var(--paper)] hover:bg-[var(--signal)] text-[var(--pool)] hover:text-white text-xs font-bold border border-emerald-200 transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-[var(--signal)]/10 hover:bg-[var(--signal)] text-[var(--signal)] hover:text-white text-xs font-bold border border-[var(--signal)]/20 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-xs"
             >
               <Send className="w-3 h-3" />
               <span>Offer</span>
@@ -148,7 +148,7 @@ export function DealCard({
           <Link
             to={`/deals/${deal.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="p-2 rounded-xl bg-white border border-[var(--line)] group-hover:border-[var(--signal)] group-hover:bg-[var(--signal)] text-gray-500 group-hover:text-white transition-all shadow-xs"
+            className="p-2 rounded-xl bg-[var(--surface)] border border-[var(--line)] group-hover:border-[var(--signal)] group-hover:bg-[var(--signal)] text-[var(--muted)] group-hover:text-white transition-all shadow-xs"
             title="View Full Need & Offers"
           >
             <ArrowRight className="w-3.5 h-3.5" />

@@ -41,10 +41,12 @@ export function HandoffQr({
   const expires = new Date(handoff.expiresAt);
 
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-white p-4">
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-xs">
       <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{label}</p>
       {dataUrl ? (
-        <img src={dataUrl} alt="Handoff QR code" className="h-44 w-44 rounded-xl" />
+        <div className="p-2 bg-white rounded-2xl shadow-xs">
+          <img src={dataUrl} alt="Handoff QR code" className="h-44 w-44 rounded-xl" />
+        </div>
       ) : (
         <div className="h-44 w-44 animate-pulse rounded-xl bg-[var(--paper)]" />
       )}
@@ -54,9 +56,9 @@ export function HandoffQr({
       <button
         type="button"
         onClick={copy}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 py-1.5 text-[10px] font-bold text-[var(--ink)] transition hover:bg-[var(--surface)]"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 py-1.5 text-[10px] font-bold text-[var(--ink)] transition hover:bg-[var(--paper)] cursor-pointer"
       >
-        {copied ? <Check className="h-3 w-3 text-[var(--pool)]" /> : <Copy className="h-3 w-3" />}
+        {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copied" : "Copy token"}
       </button>
     </div>

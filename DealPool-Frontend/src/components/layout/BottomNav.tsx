@@ -20,7 +20,7 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-white/95 px-1 py-1.5 backdrop-blur-md lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-stretch justify-around border-t border-[var(--line)] bg-[var(--surface)]/95 px-1 py-1.5 backdrop-blur-md lg:hidden transition-colors">
       {items.map((item) => {
         const Icon = item.icon;
         const isActive =
