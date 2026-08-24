@@ -40,8 +40,8 @@ export interface WalletSummary {
   locked_balance: number;
 }
 
-export interface HandoffToken {
-  token: string;
+export interface HandoffOTP {
+  code: string;
   expiresAt: string;
   purpose: "checkout" | "return";
 }

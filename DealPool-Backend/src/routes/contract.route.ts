@@ -8,7 +8,7 @@ import {
     returnContractHandler,
     disputeConditionHandler,
     rateContractHandler,
-    getHandoffTokenHandler,
+    generateOTPHandler,
 } from "../controllers/contract.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 
@@ -17,7 +17,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/", listMyContractsHandler);
-router.get("/:id/handoff-token", getHandoffTokenHandler);
+router.post("/:id/generate-otp", generateOTPHandler);
 router.get("/:id", getContractHandler);
 router.post("/:id/confirm", confirmContractHandler);
 router.post("/:id/cancel", cancelContractHandler);

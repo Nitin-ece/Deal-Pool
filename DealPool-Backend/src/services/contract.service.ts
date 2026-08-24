@@ -17,10 +17,10 @@ import {
     Rating,
 } from "../models/rating.model";
 import {
-    generateHandoffToken,
-    verifyHandoffToken,
+    generateOTP,
+    verifyOTP,
     HandoffPurpose,
-} from "../utils/qrcode";
+} from "../utils/otp";
 import { badRequest, notFound, forbidden, conflict } from "../utils/errors";
 
 /** 10% of escrowed funds retained as platform cancellation fee (90% refunded). */
@@ -71,11 +71,11 @@ export const listMyContracts = async (userId: string): Promise<Contract[]> => {
     return listContractsForUser(userId);
 };
 
-export const getHandoffToken = async (
+export const generateHandoffOTP = async (
     contractId: string,
     userId: string,
     purpose: HandoffPurpose
-): Promise<{ token: string; expiresAt: Date; purpose: HandoffPurpose }> => {
+): Promise<{ code: string; expiresAt: Date; purpose: HandoffPurpose }> => {
     const contract = await findContractById(contractId);
     if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
     if (contract.requester_id !== userId && contract.provider_id !== userId) {
@@ -84,12 +84,15 @@ export const getHandoffToken = async (
 
     if (purpose === "checkout") {
         if (contract.provider_id !== userId) {
-            throw forbidden("Only the provider can generate a checkout token", "FORBIDDEN");
+            throw forbidden("Only the provider can generate a checkout code", "FORBIDDEN");
         }
         if (contract.status !== "confirmed") {
             throw conflict("Contract must be confirmed before checkout", "CONTRACT_NOT_CONFIRMED");
         }
     } else if (purpose === "return") {
+        if (contract.requester_id !== userId) {
+            throw forbidden("Only the requester can generate a return code", "FORBIDDEN");
+        }
         if (contract.status !== "active") {
             throw conflict("Contract must be active before return", "CONTRACT_NOT_ACTIVE");
         }
@@ -97,8 +100,7 @@ export const getHandoffToken = async (
         throw badRequest("Invalid handoff purpose", "INVALID_HANDOFF_PURPOSE");
     }
 
-    const { token, expiresAt } = generateHandoffToken(contractId, purpose);
-    return { token, expiresAt, purpose };
+    return generateOTP(contractId, purpose);
 };
 
 export const confirmContract = async (
@@ -223,10 +225,10 @@ export const cancelContract = async (
 
 export const checkoutContract = async (
     contractId: string,
-    providerId: string,
-    token?: string
+    userId: string,
+    code?: string
 ): Promise<Contract> => {
-    verifyHandoffToken(token, contractId, "checkout");
+    await verifyOTP(code, contractId, "checkout");
 
     const client = await pool.connect();
     try {
@@ -234,8 +236,8 @@ export const checkoutContract = async (
 
         const contract = await findContractById(contractId, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
-        if (contract.provider_id !== providerId) {
-            throw forbidden("Only the provider can check out the item", "FORBIDDEN");
+        if (contract.requester_id !== userId && contract.provider_id !== userId) {
+            throw forbidden("Only a contract participant can confirm checkout", "FORBIDDEN");
         }
         if (contract.status !== "confirmed") {
             throw conflict("Contract must be confirmed before checkout", "CONTRACT_NOT_CONFIRMED");
@@ -264,9 +266,9 @@ export const checkoutContract = async (
 export const returnContract = async (
     contractId: string,
     userId: string,
-    token?: string
+    code?: string
 ): Promise<Contract> => {
-    verifyHandoffToken(token, contractId, "return");
+    await verifyOTP(code, contractId, "return");
 
     const client = await pool.connect();
     try {
@@ -323,7 +325,7 @@ export const disputeCondition = async (
     contractId: string,
     userId: string,
     reason: ReportReason = "damage",
-    description = "Condition disputed by provider"
+    description = "Condition disputed by participant"
 ): Promise<Contract> => {
     const client = await pool.connect();
     try {
@@ -331,10 +333,8 @@ export const disputeCondition = async (
 
         const contract = await findContractById(contractId, client);
         if (!contract) throw notFound("Contract not found", "CONTRACT_NOT_FOUND");
-        if (contract.provider_id !== userId) {
-            throw forbidden("Only the provider can dispute the returned condition", "FORBIDDEN");
-        }
 
+        // Either party (requester or provider) can file a dispute
         validateDisputeFiling(contract, userId);
 
         await insertReport(

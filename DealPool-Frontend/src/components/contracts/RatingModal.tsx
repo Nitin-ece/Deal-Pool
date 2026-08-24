@@ -23,7 +23,7 @@ const STAR_LABELS: Record<number, string> = {
 const QUICK_FEEDBACK_TAGS = [
   "Punctual & Responsive",
   "Item in Mint Condition",
-  "Smooth QR Handover",
+  "Smooth OTP Verification",
   "Clear Communication",
   "Careful with Gear",
   "Super Friendly Neighbor",

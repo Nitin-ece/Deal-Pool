@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   ArrowRight,
+  KeyRound,
   LogIn,
-  QrCode,
   ShieldCheck,
   UserPlus,
   Wallet,
@@ -27,9 +27,9 @@ const FLOW = [
     copy: "Contact stays hidden until both parties confirm. No unilateral reveals.",
   },
   {
-    icon: QrCode,
-    title: "QR handoff",
-    copy: "Pickup and return require short-lived tokens — real presence, not a button mash.",
+    icon: KeyRound,
+    title: "OTP verification",
+    copy: "Pickup and return require a 6-character code — real presence, not a button mash.",
   },
 ];
 
@@ -122,7 +122,7 @@ export function Landing() {
             transition={{ delay: 0.28, duration: 0.5 }}
             className="max-w-md text-base leading-relaxed text-white/70 sm:text-lg"
           >
-            Borrow gear from nearby makers with coin escrow, QR handoff verification, and
+            Borrow gear from nearby makers with coin escrow, OTP handoff verification, and
             two-sided contract confirmation.
           </motion.p>
           <motion.div

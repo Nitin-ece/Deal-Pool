@@ -1,88 +1,131 @@
 # DealPool Frontend
 
-Hyperlocal resource & skill exchange UI. Connects to **DealPool-Backend** over the Vite `/api` proxy with cookie-based auth.
+Hyperlocal Resource, Skill & Equipment Sharing Web Application built with **React 19**, **Vite**, **TypeScript**, and **Tailwind CSS**.
 
-## Stack
+---
 
-- React 19 + Vite 6 + TypeScript
-- Redux Toolkit + React Router 7
-- Tailwind CSS 4 + Motion + Sonner toasts
-- Axios (`withCredentials`) for httpOnly session cookies
-- Optional Firebase Web SDK for Google sign-in
+## ⚡ Tech Stack
 
-## Quick start
+- **Framework**: React 19 + TypeScript + Vite 6
+- **Routing**: React Router 7
+- **State Management**: Redux Toolkit (RTK) + RTK Query
+- **Styling**: Tailwind CSS v4 + Motion (framer-motion) + Lucide Icons
+- **Notifications**: Sonner toasts
+- **API & Networking**: Axios with cookie-based session management (`withCredentials: true`)
+- **Authentication**: JWT Cookie Auth + optional Firebase Web SDK for Google Sign-In
+- **Mapping & Geo**: Google Maps Platform / Radar discovery integration
 
-1. Install (pnpm recommended — lockfile present):
+---
 
+## 🚀 Quick Start
+
+### 1. Prerequisites
+- **Node.js** (v20+ recommended)
+- **pnpm** (recommended), npm, or bun
+
+### 2. Installation
 ```bash
+# From the DealPool-Frontend directory
 pnpm install
 ```
 
-2. Copy env:
-
+### 3. Configure Environment
+Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-3. Start **DealPool-Backend** on port `3000` (see backend README).
+Edit `.env` as needed:
+```env
+# In local development, leave VITE_API_BASE_URL empty so Vite proxies requests to localhost:3000
+VITE_API_BASE_URL=
+VITE_BACKEND_URL=http://localhost:3000
 
-4. Run the app:
+# Google Maps API Key for map radar & location search
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 
+# Firebase Web Config (matching your backend project for Google Sign-In)
+VITE_FIREBASE_API_KEY=your_firebase_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_APP_ID=your_firebase_app_id
+```
+
+### 4. Run the Development Server
+Make sure the **DealPool-Backend** is running on port `3000`, then launch:
 ```bash
 pnpm dev
 ```
+Open **`http://localhost:5173`** in your browser. All `/api/*` requests will be proxied to `http://localhost:3000`.
 
-App: `http://localhost:5173` → proxies `/api` → `VITE_BACKEND_URL` (default `http://localhost:3000`).
+---
 
-## Environment
+## 🌐 Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `VITE_API_BASE_URL` | Leave empty in local dev (use Vite proxy). Set only if calling API on another origin. |
-| `VITE_BACKEND_URL` | Proxy target for `/api` (default `http://localhost:3000`). |
-| `VITE_FIREBASE_API_KEY` / `AUTH_DOMAIN` / `PROJECT_ID` / `APP_ID` | Optional. Enables Google sign-in; must match the backend Firebase project. |
+| Variable | Required | Description |
+| :--- | :---: | :--- |
+| `VITE_API_BASE_URL` | No *(Local)* / **Yes *(Production)*** | Base URL for backend API (e.g. `https://dealpool-backend.onrender.com`). Leave empty in local dev to use Vite proxy. |
+| `VITE_BACKEND_URL` | Yes *(Local)* | Target URL for the local Vite proxy (default: `http://localhost:3000`). |
+| `VITE_GOOGLE_MAPS_API_KEY` | Optional | Google Maps API key for map radar and address autocomplete. |
+| `VITE_FIREBASE_API_KEY` | Optional | Firebase Web API key for Google OAuth authentication. |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Optional | Firebase Auth Domain for OAuth redirect/popup. |
+| `VITE_FIREBASE_PROJECT_ID` | Optional | Firebase Project ID. |
+| `VITE_FIREBASE_APP_ID` | Optional | Firebase App ID. |
 
-## What works against the real backend today
+---
 
-| Feature | Status |
-|---------|--------|
-| Register / login / logout / refresh / me | Wired to `/api/auth/*` |
-| Profile update & change password | Wired |
-| Admin user list / role / delete | Wired (`/api/admin/*`, admin role required) |
-| Google sign-in | Wired when `VITE_FIREBASE_*` is set (same project as backend). Enable Google provider in Firebase Console. |
-| Deals nearby / create / offers | **Not on backend yet** — UI shows a clear unavailable state |
+## 🚢 Production Deployment (Render / Vercel / Netlify)
 
-### Auth troubleshooting
+When deploying the frontend to production:
 
-| Symptom | Fix |
-|---------|-----|
-| "Profile already exists" / EMAIL_EXISTS on register | Use **Sign in** — account is already registered. |
-| Internal server error on auth | Restart backend after pulling fixes; check backend terminal logs. Username unique constraint + orphaned Firebase users are healed automatically now. |
-| Google button fails / popup blocked | Enable Google in Firebase Auth; add authorized domain `localhost`; restart Vite after `.env` change. |
-| Google button missing after env edit | Restart `pnpm dev` so Vite reloads `VITE_*` vars. |
+1. **Build Command**: `pnpm build`
+2. **Publish / Output Directory**: `dist`
+3. **Environment Variables**:
+   - Set `VITE_API_BASE_URL` to your live backend URL (e.g., `https://dealpool-backend.onrender.com`).
+   - Set `VITE_GOOGLE_MAPS_API_KEY` and Firebase credentials.
 
-## Mock API (optional)
+> **Note**: Ensure the backend's `CORS_ORIGIN` matches your frontend domain (e.g., `https://dealpool.onrender.com`) to allow cookie transmission (`credentials: include`).
 
-`pnpm run dev:mock` runs `server.ts` (in-memory auth + deals + seed users). Use only for local UI demos of deals. Prefer the real backend for auth/admin.
+---
 
-Demo emails like `admin@dealpool.com` exist **only** in the mock server — they will fail against Firebase.
+## 🛠️ Available Scripts
 
-## Scripts
+| Script | Command | Description |
+| :--- | :--- | :--- |
+| `dev` | `pnpm dev` | Starts Vite dev server on `http://localhost:5173` with `/api` proxy |
+| `dev:mock` | `pnpm run dev:mock` | Starts Vite with an in-memory mock Express server (`server.ts`) |
+| `build` | `pnpm build` | Type-checks and builds production-ready bundle into `dist/` |
+| `preview` | `pnpm preview` | Locally preview the production build |
+| `lint` | `pnpm lint` | Runs TypeScript compiler checks (`tsc --noEmit`) |
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Vite + proxy to backend |
-| `pnpm run dev:mock` | Vite + in-memory mock API |
-| `pnpm build` | Production build |
-| `pnpm lint` | `tsc --noEmit` |
+---
 
-## Design notes
+## 🔌 API & Feature Coverage
 
-Visual system: **Neighborhood Signal** (Syne + Manrope, cool paper ground, coral signal accent). See root `CONTEXT.md` for tokens and task history.
+| Module | Endpoints | Status |
+| :--- | :--- | :---: |
+| **Authentication** | `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, `/api/auth/refresh`, `/api/auth/google`, `/api/auth/logout` | ✅ Connected |
+| **Deals / Requests** | `/api/deals`, `/api/deals/search`, `/api/deals/:id` | ✅ Connected |
+| **Offers & Bids** | `/api/offers`, `/api/offers/:id/accept`, `/api/offers/:id/reject`, counter-offers | ✅ Connected |
+| **Smart Contracts** | `/api/contracts`, milestone updates, completion, QR confirmation | ✅ Connected |
+| **Wallet & Escrow** | `/api/wallet`, `/api/wallet/transactions`, deposit, escrow release | ✅ Connected |
+| **Geo & Discovery** | `/api/discovery/nearby` (RTK Query) | ✅ Connected |
+| **User & Admin** | `/api/admin/users`, `/api/admin/users/:id/role`, user deletion | ✅ Connected |
 
-## Known gaps / failures
+---
 
-- Deals & offers endpoints are missing on DealPool-Backend → radar/create/detail call `/api/deals*` and surface `ApiUnavailable` / error toasts.
-- Without Firebase web config, Google button is hidden.
-- Cross-origin cookies break if you set `VITE_API_BASE_URL` to another host without matching CORS + cookie domain; keep proxy for local work.
-- Backend must be running or auth/network errors will show (“Cannot reach the API…”).
+## 🔧 Troubleshooting
+
+### 1. `ERR_NETWORK` / "Cannot reach the API"
+- Make sure **DealPool-Backend** is running (`pnpm dev` in the `DealPool-Backend` directory).
+- Check that the backend port matches `VITE_BACKEND_URL` in `.env` (default `http://localhost:3000`).
+
+### 2. Cookie / Authentication Not Persisting
+- In local development, access the app via `http://localhost:5173` rather than `http://127.0.0.1:5173` to match cookie domains.
+- In production, ensure `withCredentials: true` is allowed on the backend via CORS headers (`Access-Control-Allow-Credentials: true`).
+
+### 3. Google Sign-In Button Missing or Failing
+- Ensure all `VITE_FIREBASE_*` variables are defined in `.env`.
+- Verify **Google Provider** is enabled in your Firebase Console under **Authentication → Sign-in method**.
+- Add `localhost` and your production domain to **Authorized Domains** in the Firebase Console.
+- Restart the dev server after editing `.env`.

@@ -8,10 +8,10 @@ import {
     returnContract,
     disputeCondition,
     rateContract,
-    getHandoffToken,
+    generateHandoffOTP,
 } from "../services/contract.service";
 import type { ApiResponse } from "../utils/responseApi";
-import type { HandoffPurpose } from "../utils/qrcode";
+import type { HandoffPurpose } from "../utils/otp";
 import { badRequest } from "../utils/errors";
 
 export const getContractHandler = async (
@@ -48,7 +48,7 @@ export const listMyContractsHandler = async (
     }
 };
 
-export const getHandoffTokenHandler = async (
+export const generateOTPHandler = async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -58,7 +58,7 @@ export const getHandoffTokenHandler = async (
         if (purpose !== "checkout" && purpose !== "return") {
             throw badRequest("purpose must be checkout or return", "INVALID_HANDOFF_PURPOSE");
         }
-        const result = await getHandoffToken(
+        const result = await generateHandoffOTP(
             req.params.id as string,
             req.user!.uid,
             purpose
@@ -120,7 +120,7 @@ export const checkoutContractHandler = async (
         const contract = await checkoutContract(
             req.params.id as string,
             req.user!.uid,
-            req.body?.token
+            req.body?.code
         );
         const response: ApiResponse<typeof contract> = {
             success: true,
@@ -141,7 +141,7 @@ export const returnContractHandler = async (
         const contract = await returnContract(
             req.params.id as string,
             req.user!.uid,
-            req.body?.token
+            req.body?.code
         );
         const response: ApiResponse<typeof contract> = {
             success: true,
