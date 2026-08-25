@@ -16,7 +16,7 @@ export interface Contract {
     id: string;
     deal_id: string;
     offer_id: string;
-    resource_id: string;
+    resource_id: string | null;
     requester_id: string;
     provider_id: string;
     rental_fee: number | string;
@@ -44,7 +44,7 @@ export const insertContract = async (
     params: {
         dealId: string;
         offerId: string;
-        resourceId: string;
+        resourceId?: string | null;
         requesterId: string;
         providerId: string;
         rentalFee?: number;

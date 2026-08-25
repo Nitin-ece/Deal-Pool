@@ -15,6 +15,7 @@ interface DealCardProps {
 }
 
 import { DEFAULT_CATEGORY_IMAGES } from "../../lib/categoryImages";
+import { sanitizeUrl } from "../../lib/sanitize";
 
 export function DealCard({
   deal,
@@ -24,7 +25,8 @@ export function DealCard({
   onSelect,
   onOpenOffer,
 }: DealCardProps) {
-  const imageUrl = deal.image_url || DEFAULT_CATEGORY_IMAGES[deal.category] || DEFAULT_CATEGORY_IMAGES["Other"];
+  const fallbackUrl = DEFAULT_CATEGORY_IMAGES[deal.category] || DEFAULT_CATEGORY_IMAGES["Other"];
+  const imageUrl = sanitizeUrl(deal.image_url, fallbackUrl);
 
   return (
     <div

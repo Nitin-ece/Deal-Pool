@@ -15,7 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { useGeolocation, CITY_PRESETS } from "../../hooks/useGeolocation";
+import { useGeolocation } from "../../hooks/useGeolocation";
 import { useTheme } from "../../hooks/useTheme";
 import { useAppDispatch, useAppSelector } from "../../redux/store";
 import { setSearchQuery, setRadiusKm } from "../../redux/slices/dealsSlice";
@@ -29,7 +29,7 @@ export function Header() {
   const dispatch = useAppDispatch();
   const { user, isAdmin, logout } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { userLocation, selectPresetCity, requestBrowserLocation, geoStatus } = useGeolocation();
+  const { userLocation, requestBrowserLocation, geoStatus } = useGeolocation();
   const radiusKm = useAppSelector((state) => state.deals.radiusKm);
   const searchQuery = useAppSelector((state) => state.deals.searchQuery);
   const wallet = useAppSelector((state) => state.wallet.summary);
@@ -100,54 +100,23 @@ export function Header() {
           <button
             type="button"
             id="header-location-selector"
-            onClick={() => {
-              setShowLocationDropdown((v) => !v);
-              setShowRadiusDropdown(false);
-              setShowUserMenu(false);
-            }}
-            className="flex max-w-[10rem] items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--paper)] lg:max-w-[12rem] cursor-pointer shadow-xs"
+            onClick={() => requestBrowserLocation()}
+            disabled={geoStatus === "requesting"}
+            className="flex max-w-[10rem] items-center gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs font-semibold text-[var(--ink)] transition hover:bg-[var(--paper)] lg:max-w-[14rem] cursor-pointer shadow-xs"
+            title={userLocation.cityName ? `Current Location: ${userLocation.cityName}` : "Click to enable current location"}
           >
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--signal)]" />
-            <span className="truncate">{userLocation.cityName}</span>
-            <ChevronDown className="h-3 w-3 shrink-0 text-[var(--muted)]" />
+            <MapPin className={cn("h-3.5 w-3.5 shrink-0", userLocation.cityName ? "text-[var(--signal)]" : "text-[var(--muted)]")} />
+            <span className="truncate">
+              {geoStatus === "requesting"
+                ? "Locating…"
+                : userLocation.cityName || "Enable Location"}
+            </span>
+            {userLocation.cityName && (
+              <span className="flex h-2 w-2 shrink-0">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            )}
           </button>
-          {showLocationDropdown && (
-            <div className="dropdown-panel absolute left-0 mt-2 w-64 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] py-2 shadow-xl z-50">
-              <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--muted)]">
-                City / region
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  requestBrowserLocation();
-                  closeMenus();
-                }}
-                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-semibold text-emerald-500 transition hover:bg-[var(--paper)] cursor-pointer"
-              >
-                <Crosshair className="h-3.5 w-3.5" />
-                {geoStatus === "requesting" ? "Locating…" : "Use current GPS"}
-              </button>
-              <div className="my-1 border-t border-[var(--line)]" />
-              {CITY_PRESETS.map((city) => (
-                <button
-                  key={city.name}
-                  type="button"
-                  onClick={() => {
-                    selectPresetCity(city);
-                    closeMenus();
-                  }}
-                  className={cn(
-                    "flex w-full items-center justify-between px-3.5 py-2 text-left text-xs transition hover:bg-[var(--paper)] cursor-pointer",
-                    userLocation.cityName === city.name
-                      ? "font-bold text-[var(--signal)]"
-                      : "font-medium text-[var(--ink)]"
-                  )}
-                >
-                  <span className="truncate">{city.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="relative hidden md:block">

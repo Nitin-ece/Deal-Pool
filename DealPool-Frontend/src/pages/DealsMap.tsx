@@ -18,7 +18,6 @@ import { DealCardSkeleton } from "../components/common/LoadingSkeleton";
 import { ApiUnavailable } from "../components/common/ApiUnavailable";
 import { OffersPanel } from "../components/offers/OffersPanel";
 import { LocationPermissionGate } from "../components/map/LocationPermissionGate";
-import { useGeolocation, CITY_PRESETS } from "../hooks/useGeolocation";
 import { Deal } from "../types";
 import { cn } from "../lib/cn";
 
@@ -40,7 +39,7 @@ export function DealsMap() {
   } = useAppSelector((state) => state.deals);
 
   const radiusKm = mapState.radiusKm;
-  const currentCityName = location.cityName || location.address.split(",")[0] || "Your Area";
+  const currentCityName = location.cityName || location.address.split(",")[0] || "Location not set";
 
   const [sortBy, setSortBy] = useState<"distance" | "newest" | "budget_low" | "budget_high">(
     "distance"

@@ -6,10 +6,10 @@
 /** Default search radius in kilometers. Must be one of RADIUS_OPTIONS in RadiusSelector. */
 export const DEFAULT_RADIUS_KM = 10;
 
-/** Default fallback location (Connaught Place, New Delhi). */
+/** Default empty location sentinel when user has not granted location permission. */
 export const DEFAULT_LOCATION = {
-  lat: 28.6304,
-  lng: 77.2177,
-  address: "Connaught Place, New Delhi",
-  cityName: "New Delhi",
+  lat: 0,
+  lng: 0,
+  address: "",
+  cityName: "",
 } as const;

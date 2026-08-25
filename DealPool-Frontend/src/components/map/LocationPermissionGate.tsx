@@ -1,17 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../redux/store";
-import {
-  requestUserLocation,
-  setManualLocation,
-} from "../../redux/slices/locationSlice";
-import { PlacesAutocomplete } from "./PlacesAutocomplete";
+import { requestUserLocation } from "../../redux/slices/locationSlice";
+import { setUserLocation } from "../../redux/slices/dealsSlice";
 import { RadarMap } from "./RadarMap";
 import {
   MapPin,
   Crosshair,
   AlertCircle,
-  Search,
-  Navigation,
   Shield,
   Loader2,
 } from "lucide-react";
@@ -26,38 +21,32 @@ export function LocationPermissionGate({
   heightClass = "h-[360px] sm:h-[420px] lg:h-[480px]",
 }: LocationPermissionGateProps) {
   const dispatch = useAppDispatch();
-  const { lat, lng, address, permission, error } = useAppSelector(
+  const { lat, lng, permission } = useAppSelector(
     (state) => state.location
   );
 
-  const [searchAddress, setSearchAddress] = useState(address || "");
   const [hasPrompted, setHasPrompted] = useState(false);
 
-  // On mount: One-time getCurrentPosition snapshot call (per spec: NO watchPosition)
+  // On mount: One-time getCurrentPosition snapshot call
   useEffect(() => {
     if (!hasPrompted && permission === "prompt") {
       setHasPrompted(true);
-      dispatch(requestUserLocation());
+      dispatch(requestUserLocation())
+        .unwrap()
+        .then((res) => {
+          dispatch(setUserLocation(res));
+        })
+        .catch(() => {});
     }
   }, [dispatch, hasPrompted, permission]);
 
-  const handleManualLocationSelect = (selected: {
-    address: string;
-    lat: number;
-    lng: number;
-  }) => {
-    setSearchAddress(selected.address);
-    dispatch(
-      setManualLocation({
-        lat: selected.lat,
-        lng: selected.lng,
-        address: selected.address,
-      })
-    );
-  };
-
   const handleRetryGps = () => {
-    dispatch(requestUserLocation());
+    dispatch(requestUserLocation())
+      .unwrap()
+      .then((res) => {
+        dispatch(setUserLocation(res));
+      })
+      .catch(() => {});
   };
 
   // If permission is loading on initial mount
@@ -67,74 +56,60 @@ export function LocationPermissionGate({
         className={`relative w-full ${heightClass} bg-[#0c131f] rounded-3xl overflow-hidden border border-white/10 flex flex-col items-center justify-center p-6 text-white text-center shadow-2xl ${className}`}
       >
         <div className="relative flex items-center justify-center mb-4">
-          <span className="w-16 h-16 rounded-full bg-[#FACC15]/20 animate-ping absolute" />
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#FACC15] shadow-lg">
+          <span className="w-16 h-16 rounded-full bg-[#10B981]/20 animate-ping absolute" />
+          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#10B981] shadow-lg">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
         </div>
         <h3 className="font-display text-lg font-bold text-white tracking-tight">
-          Requesting Location Snapshot…
+          Detecting Your Location…
         </h3>
         <p className="text-xs text-white/60 max-w-sm mt-1 leading-relaxed">
-          Allowing location access helps discover community needs and skill exchanges within your exact neighborhood radius.
+          Retrieving GPS coordinates to display neighborhood deals and community resources nearby.
         </p>
       </div>
     );
   }
 
-  // If permission is denied or failed: Fallback UI with Google Places Autocomplete search input
-  if (permission === "denied") {
+  // If permission is denied or no location detected
+  if (permission === "denied" || (!lat && !lng)) {
     return (
       <div
-        className={`relative w-full ${heightClass} bg-[#0c131f] rounded-3xl overflow-hidden border border-amber-500/30 flex flex-col justify-center p-6 sm:p-10 text-white shadow-2xl ${className}`}
+        className={`relative w-full ${heightClass} bg-[#0c131f] rounded-3xl overflow-hidden border border-emerald-500/30 flex flex-col justify-center items-center p-6 sm:p-10 text-white text-center shadow-2xl ${className}`}
       >
-        {/* Background ambient gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-blue-500/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-blue-500/5 pointer-events-none" />
 
-        <div className="relative z-10 max-w-xl mx-auto w-full space-y-4 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-            <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0 shadow-lg">
-              <MapPin className="w-7 h-7 animate-bounce" />
-            </div>
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
-                <AlertCircle className="w-3 h-3" />
-                <span>Location Access Disabled</span>
-              </div>
-              <h3 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Select Your Neighborhood
-              </h3>
-              <p className="text-xs text-white/70 leading-relaxed">
-                We couldn’t read your GPS coordinates. Type your street address or landmark below to anchor your local radar.
-              </p>
-            </div>
+        <div className="relative z-10 max-w-md mx-auto w-full space-y-4 flex flex-col items-center">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg">
+            <MapPin className="w-8 h-8 animate-bounce" />
           </div>
 
-          {/* Autocomplete Input Search */}
-          <div className="pt-2">
-            <PlacesAutocomplete
-              value={searchAddress}
-              lat={lat}
-              lng={lng}
-              onChange={handleManualLocationSelect}
-              placeholder="Search your area, neighborhood, street, or landmark..."
-            />
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+              <AlertCircle className="w-3 h-3" />
+              <span>Location Access Required</span>
+            </div>
+            <h3 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Enable Location for Hyperlocal Deals
+            </h3>
+            <p className="text-xs text-white/70 leading-relaxed max-w-sm">
+              DealPool uses your browser location to show available deals, tools, and skills around you. Please allow location access to activate the map radar.
+            </p>
           </div>
 
-          {/* Quick Action Footer */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-white/60 border-t border-white/10">
+          <div className="pt-2 flex flex-col items-center gap-3">
             <button
               type="button"
               onClick={handleRetryGps}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white text-xs font-bold transition-all cursor-pointer shadow-lg shadow-emerald-500/25"
             >
-              <Crosshair className="w-3.5 h-3.5 text-[#FACC15]" />
-              <span>Retry Browser GPS</span>
+              <Crosshair className="w-4 h-4" />
+              <span>Allow GPS Location Access</span>
             </button>
 
-            <div className="flex items-center gap-1 text-[11px] text-emerald-400/90">
+            <div className="flex items-center gap-1 text-[11px] text-emerald-400/80">
               <Shield className="w-3.5 h-3.5" />
-              <span>Exact coordinates shielded for your privacy</span>
+              <span>Exact coordinates are never exposed to other users</span>
             </div>
           </div>
         </div>
@@ -142,7 +117,7 @@ export function LocationPermissionGate({
     );
   }
 
-  // Permission granted (or manual address set): Render RadarMap
+  // Permission granted and coordinates available: Render RadarMap
   return (
     <RadarMap
       className={className}

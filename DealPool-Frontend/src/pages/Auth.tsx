@@ -7,6 +7,9 @@ import { useAuth } from "../hooks/useAuth";
 import { BrandMark } from "../components/common/BrandMark";
 import { getErrorMessage } from "../lib/errors";
 import { getGoogleAuthTokens, isFirebaseConfigured } from "../lib/firebase";
+import { useAppDispatch } from "../redux/store";
+import { requestUserLocation } from "../redux/slices/locationSlice";
+import { setUserLocation } from "../redux/slices/dealsSlice";
 import { cn } from "../lib/cn";
 
 interface AuthProps {
@@ -67,6 +70,15 @@ export function Auth({ initialMode = "login" }: AuthProps) {
     return getErrorMessage(err, "Authentication failed. Check your credentials.");
   };
 
+  const appDispatch = useAppDispatch();
+
+  const triggerLocationPrompt = () => {
+    appDispatch(requestUserLocation())
+      .unwrap()
+      .then((res) => appDispatch(setUserLocation(res)))
+      .catch(() => {});
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
@@ -89,6 +101,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
         await register({ email: email.trim(), password }).unwrap();
         toast.success("Account created");
       }
+      triggerLocationPrompt();
       navigate("/deals");
     } catch (err: unknown) {
       const code =
@@ -121,6 +134,7 @@ export function Auth({ initialMode = "login" }: AuthProps) {
       const tokens = await getGoogleAuthTokens();
       await googleAuth(tokens).unwrap();
       toast.success("Signed in with Google");
+      triggerLocationPrompt();
       navigate("/deals");
     } catch (err: unknown) {
       const code =

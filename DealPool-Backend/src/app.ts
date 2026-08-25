@@ -23,17 +23,30 @@ import reportRoutes from "./routes/report.route";
 
 const app = express();
 app.use(corsConfig);
-app.use(express.json());
+
+// Security Headers Middleware
+app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 app.use(requestLogger);
 
-// Serve interactive test UI dashboard
-const testsDir = path.join(process.cwd(), "tests");
-app.use("/tests", express.static(testsDir));
-app.get("/test-dashboard", (_req, res) => {
-    res.sendFile(path.join(testsDir, "index.html"));
-});
+// Serve interactive test UI dashboard (in development/test environments)
+if (process.env.NODE_ENV !== "production") {
+    const testsDir = path.join(process.cwd(), "tests");
+    app.use("/tests", express.static(testsDir));
+    app.get("/test-dashboard", (_req, res) => {
+        res.sendFile(path.join(testsDir, "index.html"));
+    });
+}
 
 app.use(apiRateLimiter);
 

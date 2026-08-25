@@ -98,9 +98,10 @@ export const findTransactionById = async (
 };
 
 export const findLatestTransactionForResource = async (
-    resourceId: string,
+    resourceId: string | null | undefined,
     client?: PoolClient
 ): Promise<Transaction | null> => {
+    if (!resourceId) return null;
     const executor = client ?? pool;
     const result = await executor.query(
         `

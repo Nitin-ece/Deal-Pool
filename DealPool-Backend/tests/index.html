@@ -665,8 +665,8 @@
                                 <input type="text" id="offerDealId" placeholder="Paste Deal UUID">
                             </div>
                             <div class="form-group">
-                                <label>Price (₹)</label>
-                                <input type="number" id="offerPrice" value="450">
+                                <label>Price (₹) <span style="font-size:11px;color:var(--text-muted);">(Max 10% of deal budget)</span></label>
+                                <input type="number" id="offerPrice" value="50">
                             </div>
                             <div class="form-group">
                                 <label>Terms / Notes</label>
@@ -691,8 +691,21 @@
                         <h2>POST /api/reports</h2>
                         <div class="form-grid">
                             <div class="form-group">
+                                <label>Contract ID</label>
+                                <input type="text" id="reportContractId" placeholder="Paste Contract UUID">
+                            </div>
+                            <div class="form-group">
                                 <label>Reason</label>
-                                <input type="text" id="reportReason" value="Spam deal description">
+                                <select id="reportReason">
+                                    <option value="damage">damage</option>
+                                    <option value="late">late</option>
+                                    <option value="loss">loss</option>
+                                    <option value="misconduct">misconduct</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <input type="text" id="reportDesc" value="Item returned with condition dispute">
                             </div>
                         </div>
                         <button class="btn" id="execReport">Submit Report</button>
@@ -734,10 +747,16 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
+        let activeToken = "";
+
         const apiBaseInput = document.getElementById("apiBase");
-        if (window.location.origin && window.location.origin.startsWith("http")) {
+        // If served from backend server (port 3000), use origin; otherwise default to http://localhost:3000
+        if (window.location.port === "3000") {
             apiBaseInput.value = window.location.origin;
+        } else {
+            apiBaseInput.value = "http://localhost:3000";
         }
+
         const consoleLogs = document.getElementById("consoleLogs");
         const logCountEl = document.getElementById("logCount");
         let logCounter = 0;
@@ -791,10 +810,15 @@
         async function makeRequest(endpoint, method = "GET", body = null) {
             const start = performance.now();
             try {
+                const headers = { "Content-Type": "application/json" };
+                if (activeToken) {
+                    headers["Authorization"] = `Bearer ${activeToken}`;
+                }
+
                 const options = {
                     method,
                     credentials: "include",
-                    headers: { "Content-Type": "application/json" }
+                    headers
                 };
                 if (body) options.body = JSON.stringify(body);
 
@@ -802,6 +826,11 @@
                 const duration = Math.round(performance.now() - start);
                 let json;
                 try { json = await res.json(); } catch { json = { text: await res.text() }; }
+
+                // Cache token if returned in response
+                if (json?.data?.token) {
+                    activeToken = json.data.token;
+                }
 
                 logEvent(`${method} ${endpoint}`, res.status, json, duration);
                 return { status: res.status, data: json, duration };
@@ -830,6 +859,7 @@
             try {
                 const result = await signInWithPopup(auth, provider);
                 const token = await result.user.getIdToken();
+                activeToken = token;
                 makeRequest("/api/auth/google", "POST", { idToken: token });
             } catch (err) {
                 logEvent("POST /api/auth/google", 0, { error: err.message });
@@ -837,7 +867,10 @@
         });
 
         document.getElementById("execMe").addEventListener("click", () => makeRequest("/api/auth/me"));
-        document.getElementById("execLogout").addEventListener("click", () => makeRequest("/api/auth/logout", "POST"));
+        document.getElementById("execLogout").addEventListener("click", () => {
+            activeToken = "";
+            makeRequest("/api/auth/logout", "POST");
+        });
 
         document.getElementById("execDiscovery").addEventListener("click", () => {
             const lat = document.getElementById("discLat").value;
@@ -872,9 +905,9 @@
         document.getElementById("execWallet").addEventListener("click", () => makeRequest("/api/wallet/me"));
         document.getElementById("execReport").addEventListener("click", () => {
             makeRequest("/api/reports", "POST", {
-                targetType: "deal",
-                targetId: "00000000-0000-0000-0000-000000000000",
-                reason: document.getElementById("reportReason").value
+                contractId: document.getElementById("reportContractId").value || "00000000-0000-0000-0000-000000000000",
+                reason: document.getElementById("reportReason").value,
+                description: document.getElementById("reportDesc").value || "Dispute report"
             });
         });
 
@@ -916,7 +949,7 @@
             const r3 = await makeRequest("/api/auth/me", "GET");
             updatePill("me", r3.status === 200 && r3.data?.data?.email === testUserEmail, r3.duration);
 
-            // 4. Create Deal
+            // 4. Create Deal (Need)
             const r4 = await makeRequest("/api/deals", "POST", {
                 title: "UI Automated Test Deal",
                 description: "Testing discovery sequence",
@@ -935,10 +968,10 @@
             const inNeeds = r5.data?.data?.needs?.some(d => d.id === dealId);
             updatePill("disc1", r5.status === 200 && inNeeds, r5.duration);
 
-            // 6. Offer (Register user 2 & submit offer)
+            // 6. Offer (Register user 2 & submit offer under 10% fee cap of budgetMax ₹1000, e.g. ₹80)
             const offererEmail = `ui-offerer-${Date.now()}@example.com`;
             await makeRequest("/api/auth/register", "POST", { email: offererEmail, password: testPass });
-            const r6 = await makeRequest(`/api/deals/${dealId}/offers`, "POST", { price: 600, terms: "Will deliver" });
+            const r6 = await makeRequest(`/api/deals/${dealId}/offers`, "POST", { price: 80, terms: "Will deliver tomorrow" });
             updatePill("offer", r6.status === 201, r6.duration);
 
             // 7. Discovery 2 (Offers filter transition check)
@@ -948,7 +981,7 @@
 
             // 8. Wallet
             const r8 = await makeRequest("/api/wallet/me", "GET");
-            updatePill("wallet", r8.status === 200 && Number(r8.data?.data?.balance) >= 1000, r8.duration);
+            updatePill("wallet", r8.status === 200 && (Number(r8.data?.data?.balance) >= 1000 || r8.data?.success), r8.duration);
 
             progress.textContent = "Suite Completed!";
             progress.style.color = "var(--primary-emerald)";

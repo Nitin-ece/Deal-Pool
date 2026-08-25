@@ -13,13 +13,11 @@ export interface LocationState {
   error: string | null;
 }
 
-const DEFAULT_COORDS = DEFAULT_LOCATION;
-
 const initialState: LocationState = {
-  lat: DEFAULT_COORDS.lat,
-  lng: DEFAULT_COORDS.lng,
-  address: DEFAULT_COORDS.address,
-  cityName: DEFAULT_COORDS.cityName,
+  lat: 0,
+  lng: 0,
+  address: "",
+  cityName: "",
   permission: "prompt",
   fetchedAt: null,
   error: null,

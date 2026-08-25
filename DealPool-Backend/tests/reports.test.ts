@@ -109,22 +109,22 @@ try {
         await request(app).post(`/api/contracts/${contractId}/confirm`).set("Cookie", cookieProvider);
 
         const checkoutTokenRes = await request(app)
-            .get(`/api/contracts/${contractId}/handoff-token?purpose=checkout`)
+            .post(`/api/contracts/${contractId}/generate-otp?purpose=checkout`)
             .set("Cookie", cookieProvider);
-        const checkoutToken = checkoutTokenRes.body.data?.token;
+        const checkoutCode = checkoutTokenRes.body.data?.code;
         await request(app)
             .post(`/api/contracts/${contractId}/checkout`)
             .set("Cookie", cookieProvider)
-            .send({ token: checkoutToken });
+            .send({ code: checkoutCode });
 
         const returnTokenRes = await request(app)
-            .get(`/api/contracts/${contractId}/handoff-token?purpose=return`)
+            .post(`/api/contracts/${contractId}/generate-otp?purpose=return`)
             .set("Cookie", cookieRequester);
-        const returnToken = returnTokenRes.body.data?.token;
+        const returnCode = returnTokenRes.body.data?.code;
         await request(app)
             .post(`/api/contracts/${contractId}/return`)
             .set("Cookie", cookieRequester)
-            .send({ token: returnToken });
+            .send({ code: returnCode });
     });
 
     await test("POST /api/reports creates a dispute and marks contract condition_disputed", async () => {

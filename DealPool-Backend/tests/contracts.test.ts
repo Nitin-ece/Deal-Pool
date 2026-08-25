@@ -60,12 +60,12 @@ const fetchHandoffToken = async (
     purpose: "checkout" | "return"
 ): Promise<string> => {
     const res = await request(app)
-        .get(`/api/contracts/${id}/handoff-token?purpose=${purpose}`)
+        .post(`/api/contracts/${id}/generate-otp?purpose=${purpose}`)
         .set("Cookie", cookie);
     if (res.status !== 200) {
         throw new Error(`handoff-token failed: ${res.status} ${JSON.stringify(res.body)}`);
     }
-    return res.body.data.token;
+    return res.body.data.code;
 };
 
 try {
@@ -190,15 +190,15 @@ try {
             .post(`/api/contracts/${contractId}/checkout`)
             .set("Cookie", cookieRenter);
         if (noTokenRes.status !== 400) throw new Error(`Expected 400 got ${noTokenRes.status}`);
-        if (noTokenRes.body.error?.code !== "MISSING_HANDOFF_TOKEN") {
-            throw new Error(`Expected MISSING_HANDOFF_TOKEN got ${noTokenRes.body.error?.code}`);
+        if (noTokenRes.body.error?.code !== "MISSING_HANDOFF_CODE") {
+            throw new Error(`Expected MISSING_HANDOFF_CODE got ${noTokenRes.body.error?.code}`);
         }
 
         const token = await fetchHandoffToken(contractId, cookieRenter, "checkout");
         const checkoutRes = await request(app)
             .post(`/api/contracts/${contractId}/checkout`)
             .set("Cookie", cookieRenter)
-            .send({ token });
+            .send({ code: token });
         if (checkoutRes.status !== 200) throw new Error(`Expected 200 got ${checkoutRes.status} ${JSON.stringify(checkoutRes.body)}`);
         if (checkoutRes.body.data?.status !== "active") {
             throw new Error(`Expected status 'active', got ${checkoutRes.body.data?.status}`);
@@ -213,7 +213,7 @@ try {
         const returnRes = await request(app)
             .post(`/api/contracts/${contractId}/return`)
             .set("Cookie", cookieOwner)
-            .send({ token });
+            .send({ code: token });
         if (returnRes.status !== 200) throw new Error(`Expected 200 got ${returnRes.status} ${JSON.stringify(returnRes.body)}`);
         if (returnRes.body.data?.status !== "returned") {
             throw new Error(`Expected status 'returned', got ${returnRes.body.data?.status}`);
@@ -389,13 +389,13 @@ try {
         await request(app)
             .post(`/api/contracts/${rateContractId}/checkout`)
             .set("Cookie", cookieRenter)
-            .send({ token: checkoutToken });
+            .send({ code: checkoutToken });
 
         const returnToken = await fetchHandoffToken(rateContractId, cookieOwner, "return");
         await request(app)
             .post(`/api/contracts/${rateContractId}/return`)
             .set("Cookie", cookieOwner)
-            .send({ token: returnToken });
+            .send({ code: returnToken });
 
         // Force completed (skip dispute window) for rating test
         await pool.query(

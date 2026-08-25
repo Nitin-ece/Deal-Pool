@@ -1,9 +1,8 @@
-import React, { useState } from "react";
-import { MapPin, Crosshair, X, Shield, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { MapPin, Crosshair, X, Sparkles } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../redux/store";
-import { requestUserLocation, setManualLocation } from "../../redux/slices/locationSlice";
+import { requestUserLocation } from "../../redux/slices/locationSlice";
 import { setUserLocation } from "../../redux/slices/dealsSlice";
-import { CITY_PRESETS } from "../../hooks/useGeolocation";
 
 export function LocationPrompt() {
   const dispatch = useAppDispatch();
@@ -28,18 +27,6 @@ export function LocationPrompt() {
       });
   };
 
-  const handleSelectCity = (preset: (typeof CITY_PRESETS)[0]) => {
-    const payload = {
-      lat: preset.lat,
-      lng: preset.lng,
-      address: preset.address,
-      cityName: preset.name,
-    };
-    dispatch(setManualLocation(payload));
-    dispatch(setUserLocation(payload));
-    setDismissed(true);
-  };
-
   return (
     <aside
       aria-label="Location services notification"
@@ -58,7 +45,7 @@ export function LocationPrompt() {
               </span>
             </div>
             <p className="text-[11px] text-emerald-200/70 sm:text-xs">
-              Allow location to automatically discover tools, equipment & skills near you.
+              Allow location access to automatically discover deals, equipment & skills near you.
             </p>
           </div>
         </div>
@@ -73,21 +60,6 @@ export function LocationPrompt() {
             <Crosshair className="h-3.5 w-3.5" />
             <span>{isLocating ? "Requesting GPS…" : "Allow Location Access"}</span>
           </button>
-
-          {/* Quick City Presets */}
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <span className="text-[11px] text-white/50">or choose:</span>
-            {CITY_PRESETS.slice(0, 3).map((city) => (
-              <button
-                key={city.name}
-                type="button"
-                onClick={() => handleSelectCity(city)}
-                className="rounded-lg bg-white/10 px-2 py-1 text-[11px] font-semibold text-white/80 transition hover:bg-white/20 hover:text-white cursor-pointer"
-              >
-                {city.name.split(" ")[0]}
-              </button>
-            ))}
-          </div>
 
           <button
             type="button"

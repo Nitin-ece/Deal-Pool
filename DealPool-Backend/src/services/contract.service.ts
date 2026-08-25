@@ -140,7 +140,7 @@ export const confirmContract = async (
             client
         );
 
-        if (bothConfirmed) {
+        if (bothConfirmed && contract.resource_id) {
             await transitionCustody(contract.resource_id, contract.provider_id, client);
         }
 
@@ -204,7 +204,9 @@ export const cancelContract = async (
             );
         }
 
-        await transitionCustody(contract.resource_id, contract.requester_id, client);
+        if (contract.resource_id) {
+            await transitionCustody(contract.resource_id, contract.requester_id, client);
+        }
 
         const updated = await updateContractStatus(
             contractId,
@@ -251,7 +253,9 @@ export const checkoutContract = async (
             client
         );
 
-        await transitionCustody(contract.resource_id, contract.provider_id, client);
+        if (contract.resource_id) {
+            await transitionCustody(contract.resource_id, contract.provider_id, client);
+        }
 
         await client.query("COMMIT");
         return updated!;
@@ -309,7 +313,9 @@ export const returnContract = async (
             client
         );
 
-        await transitionCustody(contract.resource_id, contract.requester_id, client);
+        if (contract.resource_id) {
+            await transitionCustody(contract.resource_id, contract.requester_id, client);
+        }
 
         await client.query("COMMIT");
         return updated!;

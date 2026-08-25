@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../redux/store";
 import { createDeal } from "../redux/slices/dealsSlice";
+import { requestUserLocation } from "../redux/slices/locationSlice";
 import { DealCategory } from "../types";
-import { DEFAULT_RADIUS_KM, DEFAULT_LOCATION } from "../lib/constants";
-import { PlacesAutocomplete } from "../components/map/PlacesAutocomplete";
+import { DEFAULT_RADIUS_KM } from "../lib/constants";
 import { LocationPermissionGate } from "../components/map/LocationPermissionGate";
 import { useAuth } from "../hooks/useAuth";
 import { getErrorMessage } from "../lib/errors";
+import { sanitizeUrl, isValidImageUrl } from "../lib/sanitize";
 import {
   Sparkles,
   Box,
@@ -18,9 +19,8 @@ import {
   AlertCircle,
   MapPin,
   ArrowLeft,
-  Radio,
-  Image as ImageIcon,
-  Camera,
+  Crosshair,
+  Shield,
 } from "lucide-react";
 
 const CATEGORY_OPTIONS: Array<{
@@ -69,6 +69,7 @@ export function CreateDeal() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
+  const locationState = useAppSelector((state) => state.location);
   const { userLocation } = useAppSelector((state) => state.deals);
 
   const [category, setCategory] = useState<DealCategory>("Physical Resource");
@@ -78,24 +79,29 @@ export function CreateDeal() {
   const [budgetMin, setBudgetMin] = useState<number | string>(500);
   const [budgetMax, setBudgetMax] = useState<number | string>(800);
   const [radiusKm, setRadiusKm] = useState<number>(DEFAULT_RADIUS_KM);
-  const [locationData, setLocationData] = useState({
-    address: userLocation.address || "",
-    lat: userLocation.lat || 0,
-    lng: userLocation.lng || 0,
-  });
+  const [isLocating, setIsLocating] = useState(false);
+
+  const activeLat = locationState.lat || userLocation?.lat || 0;
+  const activeLng = locationState.lng || userLocation?.lng || 0;
+  const activeAddress = locationState.address || userLocation?.address || "";
+  const activeCity = locationState.cityName || userLocation?.cityName || "";
 
   useEffect(() => {
-    if (userLocation.lat && userLocation.lng) {
-      setLocationData({
-        address: userLocation.address || "Your Current Location",
-        lat: userLocation.lat,
-        lng: userLocation.lng,
-      });
+    if (!activeLat && !activeLng && locationState.permission === "prompt") {
+      dispatch(requestUserLocation());
     }
-  }, [userLocation.lat, userLocation.lng, userLocation.address]);
+  }, [dispatch, activeLat, activeLng, locationState.permission]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFetchLocation = () => {
+    setIsLocating(true);
+    dispatch(requestUserLocation())
+      .unwrap()
+      .catch(() => {})
+      .finally(() => setIsLocating(false));
+  };
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -111,8 +117,11 @@ export function CreateDeal() {
     if (budgetMax && Number(budgetMax) < Number(budgetMin)) {
       errs.budget = "Maximum budget must be greater than or equal to minimum budget.";
     }
-    if (!locationData.lat || !locationData.lng) {
-      errs.location = "Please pick a valid location.";
+    if (!activeLat || !activeLng) {
+      errs.location = "Location access is required to post a deal in your neighborhood. Please allow GPS location.";
+    }
+    if (imageUrl.trim() && !isValidImageUrl(imageUrl.trim())) {
+      errs.image = "Please provide a valid https:// image URL.";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -129,6 +138,7 @@ export function CreateDeal() {
 
     setIsSubmitting(true);
     try {
+      const sanitizedImg = imageUrl.trim() ? sanitizeUrl(imageUrl.trim()) : undefined;
       const created = await dispatch(
         createDeal({
           title: title.trim(),
@@ -136,11 +146,11 @@ export function CreateDeal() {
           category,
           budgetMin: Number(budgetMin),
           budgetMax: Number(budgetMax) || Number(budgetMin),
-          lat: locationData.lat,
-          lng: locationData.lng,
+          lat: activeLat,
+          lng: activeLng,
           radiusKm,
-          address: locationData.address,
-          image_url: imageUrl.trim() || undefined,
+          address: activeAddress || activeCity || "Current GPS Location",
+          image_url: sanitizedImg || undefined,
         })
       ).unwrap();
 
@@ -163,7 +173,7 @@ export function CreateDeal() {
         <span>Back</span>
       </button>
 
-      {/* Top Map Visual Live Radar Banner replacing static placeholder */}
+      {/* Top Map Visual Live Radar Banner */}
       <div className="relative rounded-3xl overflow-hidden border border-[#E5E5E2] bg-gray-900 shadow-xs">
         <LocationPermissionGate heightClass="h-56 sm:h-64" />
       </div>
@@ -270,6 +280,7 @@ export function CreateDeal() {
                 placeholder="Or paste an image URL (https://...)"
                 className="w-full px-3.5 py-2 bg-[var(--paper)] rounded-xl text-xs text-[var(--ink)] border border-[var(--line)] focus:outline-none focus:bg-[var(--surface)] focus:ring-2 focus:ring-[var(--signal)] transition-all font-medium placeholder:text-[var(--muted)]"
               />
+              {errors.image && <p className="text-xs text-rose-500 font-medium">{errors.image}</p>}
             </div>
           </div>
         </div>
@@ -361,18 +372,45 @@ export function CreateDeal() {
         </div>
 
         {/* Section 4: Location & Discovery Radius */}
-        <div className="bg-[var(--surface)] rounded-3xl p-6 sm:p-8 border border-[var(--line)] shadow-xs space-y-6">
+        <div className="bg-[var(--surface)] rounded-3xl p-6 sm:p-8 border border-[var(--line)] shadow-xs space-y-5">
           <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
-            4. Location & Discovery Radius
+            4. Current Location & Broadcast Radius
           </label>
 
-          <PlacesAutocomplete
-            value={locationData.address}
-            lat={locationData.lat}
-            lng={locationData.lng}
-            onChange={(loc) => setLocationData(loc)}
-            error={errors.location}
-          />
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-[var(--paper)] border border-[var(--line)]">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-500">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-[var(--ink)]">
+                  {activeCity || activeAddress || "Location not detected"}
+                </div>
+                <div className="text-[11px] text-[var(--muted)]">
+                  {activeLat && activeLng
+                    ? `GPS: ${activeLat.toFixed(4)}, ${activeLng.toFixed(4)}`
+                    : "Allow location access to anchor your deal to your neighborhood"}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleFetchLocation}
+              disabled={isLocating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Crosshair className={`w-3.5 h-3.5 ${isLocating ? "animate-spin" : ""}`} />
+              <span>{isLocating ? "Locating..." : activeLat ? "Update GPS" : "Detect GPS"}</span>
+            </button>
+          </div>
+
+          {errors.location && (
+            <p className="text-xs text-rose-500 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>{errors.location}</span>
+            </p>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -396,6 +434,11 @@ export function CreateDeal() {
               <span>8 km (District sector)</span>
               <span>25 km (Metropolitan)</span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+            <Shield className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Exact coordinates are obscured on public map for privacy</span>
           </div>
         </div>
 
